@@ -2,12 +2,12 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 import {
-  askQuestion,
   checkHealth,
   fetchDocuments,
+  streamQuestion,
   uploadDocument,
 } from "@/lib/api";
-import type { KnowledgeDocument, Source } from "@/lib/api";
+import type { AnswerMode, KnowledgeDocument, Source } from "@/lib/api";
 import type { Message } from "@/lib/types";
 import { Sidebar } from "@/components/sidebar";
 import { ChatPanel } from "@/components/chat-panel";
@@ -31,6 +31,7 @@ export default function Home() {
   const [isHealthy, setIsHealthy] = useState(false);
   const [isAsking, setIsAsking] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [answerMode, setAnswerMode] = useState<AnswerMode>("fast");
   const [notice, setNotice] = useState<string>();
   const [selectedFileName, setSelectedFileName] = useState("尚未选择文件");
   const fileRef = useRef<HTMLInputElement>(null);
@@ -53,6 +54,10 @@ export default function Home() {
     const trimmed = question.trim();
     if (!trimmed || isAsking) return;
 
+    const requestMode = answerMode;
+    const assistantMessageId = crypto.randomUUID();
+    let hasAssistantMessage = false;
+    let streamSources: Source[] = [];
     setMessages((current) => [
       ...current,
       { id: crypto.randomUUID(), role: "user", content: trimmed },
@@ -62,24 +67,88 @@ export default function Home() {
     setNotice(undefined);
 
     try {
-      const payload = await askQuestion(trimmed, conversationId);
-      setConversationId(payload.conversation_id);
-      setLatestSources(payload.sources);
-      setMessages((current) => [
-        ...current,
-        {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: payload.answer,
-          sources: payload.sources,
-        },
-      ]);
+      await streamQuestion(trimmed, requestMode, conversationId, (event) => {
+        if (event.type === "answer_delta") {
+          if (!hasAssistantMessage) {
+            hasAssistantMessage = true;
+            setMessages((current) => [
+              ...current,
+              {
+                id: assistantMessageId,
+                role: "assistant",
+                content: event.content,
+                sources: streamSources,
+                answerMode: requestMode,
+              },
+            ]);
+          } else {
+            setMessages((current) =>
+              current.map((message) =>
+                message.id === assistantMessageId
+                  ? { ...message, content: message.content + event.content }
+                  : message,
+              ),
+            );
+          }
+          return;
+        }
+
+        if (event.type === "sources") {
+          streamSources = event.content;
+          setLatestSources(event.content);
+          setMessages((current) =>
+            current.map((message) =>
+              message.id === assistantMessageId
+                ? { ...message, sources: event.content }
+                : message,
+            ),
+          );
+          return;
+        }
+
+        if (event.type === "done") {
+          setConversationId(event.conversation_id);
+          setMessages((current) =>
+            current.map((message) =>
+              message.id === assistantMessageId
+                ? {
+                    ...message,
+                    answerMode: event.answer_mode,
+                    model: event.model,
+                  }
+                : message,
+            ),
+          );
+        }
+      });
     } catch (error) {
-      setNotice(
+      const errorMessage =
         error instanceof Error
           ? error.message
-          : "问答请求失败，请确认后端服务是否启动。",
-      );
+          : "问答请求失败，请确认后端服务是否启动。";
+      setMessages((current) => {
+        if (hasAssistantMessage) {
+          return current.map((message) =>
+            message.id === assistantMessageId
+              ? {
+                  ...message,
+                  content: `${message.content}\n\n流式生成中断：${errorMessage}`,
+                }
+              : message,
+          );
+        }
+
+        return [
+          ...current,
+          {
+            id: assistantMessageId,
+            role: "assistant",
+            content: `流式生成失败：${errorMessage}`,
+            answerMode: requestMode,
+          },
+        ];
+      });
+      setNotice(errorMessage);
     } finally {
       setIsAsking(false);
     }
@@ -115,6 +184,8 @@ export default function Home() {
           question={question}
           setQuestion={setQuestion}
           isAsking={isAsking}
+          answerMode={answerMode}
+          setAnswerMode={setAnswerMode}
           conversationId={conversationId}
           onAsk={handleAsk}
         />

@@ -1,10 +1,12 @@
-import type { Source } from "@/lib/api";
+import type { AnswerMode, Source } from "@/lib/api";
 
 export type Message = {
   id: string;
   role: "user" | "assistant";
   content: string;
   sources?: Source[];
+  answerMode?: AnswerMode;
+  model?: string | null;
 };
 
 export const navItems = ["智能问答", "知识库", "会话记录", "权限审计"];

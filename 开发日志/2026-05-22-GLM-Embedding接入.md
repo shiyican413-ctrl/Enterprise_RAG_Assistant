@@ -9,7 +9,7 @@
 - 在 `backend/ai_service/config.py` 增加本地 `.env` 自动读取能力。
 - 在项目根目录创建本地 `.env`，用于保存 GLM Embedding 配置。
 - 更新 `README.md`，补充 `.env` 配置说明。
-- 更新 `docs/08_部署与启动说明.md`，把启动方式改成推荐使用 `.env`。
+- 更新 `docs/部署与启动说明.md`，把启动方式改成推荐使用 `.env`。
 
 ## 有什么用
 

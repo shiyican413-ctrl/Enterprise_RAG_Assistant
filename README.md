@@ -27,7 +27,7 @@ data/
   uploads/               上传文件目录
   knowledge_base/        本地索引和历史记录
 docs/
-  08_部署与启动说明.md
+  部署与启动说明.md
 requirements.txt
 项目架构与功能方案.md
 ```
@@ -47,6 +47,9 @@ uvicorn backend.ai_service.main:app --reload --host 127.0.0.1 --port 8000
 GLM_API_KEY=your-glm-api-key
 GLM_EMBEDDING_MODEL=embedding-3
 GLM_EMBEDDING_URL=https://open.bigmodel.cn/api/paas/v4/embeddings
+GLM_CHAT_URL=https://open.bigmodel.cn/api/paas/v4/chat/completions
+GLM_FAST_MODEL=GLM-4V-Flash
+GLM_THINKING_MODEL=GLM-4.1V-Thinking-Flash
 ```
 
 打开 `http://127.0.0.1:8000/docs` 查看接口文档。
@@ -92,11 +95,11 @@ curl -X POST "http://127.0.0.1:8000/api/chat/ask" ^
 
 ## 当前实现说明
 
-当前版本已支持 GLM `embedding-3` 嵌入模型。配置 `GLM_API_KEY` 后，文档入库会保存 2048 维 dense embedding，问答检索会优先使用向量相似度；未配置 Key 时会自动降级到纯 Python 本地稀疏检索，方便离线开发。
+当前版本已支持 GLM `embedding-3` 嵌入模型和 GLM Chat Completions 回答生成。配置 `GLM_API_KEY` 后，文档入库会保存 2048 维 dense embedding，问答检索会优先使用向量相似度，并把检索片段交给聊天模型生成带引用编号的回答；前端问答默认使用 `/api/chat/stream` 进行真正的流式输出。未配置 Key 时会自动降级到纯 Python 本地稀疏检索和模板回答，方便离线开发。
 
 - `vector_store_service.py` 后续可继续替换为 Chroma、pgvector 或 Qdrant。
-- `rag_service.py` 后续可接入通义千问、Ollama 或 OpenAI Compatible API。
-- `routes.py` 已提供普通问答和 SSE 流式问答接口，方便 Next.js 前端对接。
+- `rag_service.py` 已支持快速模式 `GLM-4V-Flash` 和思考模式 `GLM-4.1V-Thinking-Flash`。
+- `routes.py` 已提供普通问答和真正的 SSE 流式问答接口，方便 Next.js 前端对接。
 - `frontend/next-web` 已提供知识库上传、智能问答、文档列表、引用来源和服务状态展示。
 
 ## 开发路线

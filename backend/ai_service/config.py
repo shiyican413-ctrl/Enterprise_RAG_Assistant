@@ -45,3 +45,11 @@ GLM_EMBEDDING_URL = os.getenv(
 GLM_EMBEDDING_MODEL = os.getenv("GLM_EMBEDDING_MODEL", "embedding-3")
 EMBEDDING_BATCH_SIZE = int(os.getenv("EMBEDDING_BATCH_SIZE", "16"))
 EMBEDDING_TIMEOUT_SECONDS = float(os.getenv("EMBEDDING_TIMEOUT_SECONDS", "30"))
+
+GLM_CHAT_URL = os.getenv(
+    "GLM_CHAT_URL",
+    "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+)
+GLM_FAST_MODEL = os.getenv("GLM_FAST_MODEL", "GLM-4V-Flash")
+GLM_THINKING_MODEL = os.getenv("GLM_THINKING_MODEL", "GLM-4.1V-Thinking-Flash")
+CHAT_TIMEOUT_SECONDS = float(os.getenv("CHAT_TIMEOUT_SECONDS", "60"))

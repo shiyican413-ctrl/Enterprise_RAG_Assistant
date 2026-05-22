@@ -15,7 +15,7 @@
   --color-brand-700: oklch(0.458 0.180 275);
   --color-brand-800: oklch(0.400 0.140 275);
   --color-brand-900: oklch(0.350 0.110 275);
-  --font-sans: "Inter", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+  --font-sans: "Segoe UI", "Microsoft YaHei", "PingFang SC", "Noto Sans SC", Arial, system-ui, sans-serif;
 }
 
 :root {

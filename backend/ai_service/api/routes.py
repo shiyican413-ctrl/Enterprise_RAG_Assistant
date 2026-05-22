@@ -64,22 +64,20 @@ def ask(request: AskRequest) -> dict:
         question=request.question,
         conversation_id=request.conversation_id,
         top_k=request.top_k,
+        answer_mode=request.answer_mode,
     )
 
 
 @router.post("/api/chat/stream")
 async def stream(request: AskRequest) -> StreamingResponse:
-    payload = rag_service.ask(
-        question=request.question,
-        conversation_id=request.conversation_id,
-        top_k=request.top_k,
-    )
-
     async def events() -> AsyncIterator[str]:
-        for line in payload["answer"].splitlines():
-            yield f"data: {json.dumps({'type': 'answer_delta', 'content': line}, ensure_ascii=False)}\n\n"
-        yield f"data: {json.dumps({'type': 'sources', 'content': payload['sources']}, ensure_ascii=False)}\n\n"
-        yield f"data: {json.dumps({'type': 'done', 'conversation_id': payload['conversation_id']}, ensure_ascii=False)}\n\n"
+        async for event in rag_service.stream_ask(
+            question=request.question,
+            conversation_id=request.conversation_id,
+            top_k=request.top_k,
+            answer_mode=request.answer_mode,
+        ):
+            yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
 
     return StreamingResponse(events(), media_type="text/event-stream")
 
