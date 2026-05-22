@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Iterable
 
 from backend.ai_service.config import INDEX_FILE, KNOWLEDGE_DIR
+from backend.ai_service.services.embedding_service import GLMEmbeddingClient
 
 
 TOKEN_PATTERN = re.compile(r"[\w\u4e00-\u9fff]+", re.UNICODE)
@@ -23,6 +24,8 @@ class DocumentChunk:
     content: str
     metadata: dict
     created_at: str
+    embedding: list[float] | None = None
+    embedding_model: str | None = None
 
 
 @dataclass
@@ -32,10 +35,15 @@ class SearchResult:
 
 
 class LocalVectorStore:
-    """Small persistent sparse-vector store for first-day RAG development."""
+    """Small persistent vector store with GLM dense embeddings and sparse fallback."""
 
-    def __init__(self, index_file: Path = INDEX_FILE) -> None:
+    def __init__(
+        self,
+        index_file: Path = INDEX_FILE,
+        embedding_client: GLMEmbeddingClient | None = None,
+    ) -> None:
         self.index_file = index_file
+        self.embedding_client = embedding_client or GLMEmbeddingClient()
         KNOWLEDGE_DIR.mkdir(parents=True, exist_ok=True)
         self._chunks: list[DocumentChunk] = self._load()
 
@@ -49,6 +57,9 @@ class LocalVectorStore:
         now = datetime.now(UTC).isoformat()
         base_metadata = metadata or {}
 
+        contents = [content for content in chunks if content.strip()]
+        embeddings = self._embed_contents(contents)
+
         new_chunks = [
             DocumentChunk(
                 id=str(uuid.uuid4()),
@@ -58,9 +69,10 @@ class LocalVectorStore:
                 content=content,
                 metadata=base_metadata,
                 created_at=now,
+                embedding=embeddings[index] if embeddings else None,
+                embedding_model=self.embedding_client.model if embeddings else None,
             )
-            for index, content in enumerate(chunks)
-            if content.strip()
+            for index, content in enumerate(contents)
         ]
 
         self._chunks.extend(new_chunks)
@@ -96,6 +108,23 @@ class LocalVectorStore:
         self._save()
 
     def search(self, query: str, top_k: int) -> list[SearchResult]:
+        if self.embedding_client.enabled and self._has_dense_embeddings():
+            return self._dense_search(query, top_k=top_k)
+        return self._sparse_search(query, top_k=top_k)
+
+    def _dense_search(self, query: str, top_k: int) -> list[SearchResult]:
+        query_embedding = self.embedding_client.embed_texts([query])[0]
+        results: list[SearchResult] = []
+        for chunk in self._chunks:
+            if not chunk.embedding:
+                continue
+            score = _dense_cosine_similarity(query_embedding, chunk.embedding)
+            if score > 0:
+                results.append(SearchResult(chunk=chunk, score=score))
+
+        return sorted(results, key=lambda result: result.score, reverse=True)[:top_k]
+
+    def _sparse_search(self, query: str, top_k: int) -> list[SearchResult]:
         query_vector = _to_vector(query)
         if not query_vector:
             return []
@@ -107,6 +136,14 @@ class LocalVectorStore:
                 results.append(SearchResult(chunk=chunk, score=score))
 
         return sorted(results, key=lambda result: result.score, reverse=True)[:top_k]
+
+    def _embed_contents(self, contents: list[str]) -> list[list[float]]:
+        if not self.embedding_client.enabled or not contents:
+            return []
+        return self.embedding_client.embed_texts(contents)
+
+    def _has_dense_embeddings(self) -> bool:
+        return any(chunk.embedding for chunk in self._chunks)
 
     def _load(self) -> list[DocumentChunk]:
         if not self.index_file.exists():
@@ -146,6 +183,15 @@ def _cosine_similarity(left: Counter, right: Counter) -> float:
     numerator = sum(left[token] * right[token] for token in shared)
     left_norm = math.sqrt(sum(value * value for value in left.values()))
     right_norm = math.sqrt(sum(value * value for value in right.values()))
+    if not left_norm or not right_norm:
+        return 0.0
+    return numerator / (left_norm * right_norm)
+
+
+def _dense_cosine_similarity(left: list[float], right: list[float]) -> float:
+    numerator = sum(left_value * right_value for left_value, right_value in zip(left, right))
+    left_norm = math.sqrt(sum(value * value for value in left))
+    right_norm = math.sqrt(sum(value * value for value in right))
     if not left_norm or not right_norm:
         return 0.0
     return numerator / (left_norm * right_norm)

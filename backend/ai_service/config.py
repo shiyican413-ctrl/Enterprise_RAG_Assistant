@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 
@@ -16,3 +17,12 @@ CHUNK_OVERLAP = 120
 TOP_K = 4
 
 SUPPORTED_EXTENSIONS = {".txt", ".md", ".csv", ".json", ".pdf"}
+
+GLM_API_KEY = os.getenv("GLM_API_KEY", "").strip()
+GLM_EMBEDDING_URL = os.getenv(
+    "GLM_EMBEDDING_URL",
+    "https://open.bigmodel.cn/api/paas/v4/embeddings",
+)
+GLM_EMBEDDING_MODEL = os.getenv("GLM_EMBEDDING_MODEL", "embedding-3")
+EMBEDDING_BATCH_SIZE = int(os.getenv("EMBEDDING_BATCH_SIZE", "16"))
+EMBEDDING_TIMEOUT_SECONDS = float(os.getenv("EMBEDDING_TIMEOUT_SECONDS", "30"))

@@ -38,7 +38,7 @@ export function InspectorPanel({
   }
 
   return (
-    <div className="flex flex-col gap-3 min-w-0">
+    <div className="flex min-h-0 flex-col gap-3 overflow-y-auto">
       {/* Upload */}
       <Card className="rounded-xl">
         <CardHeader className="flex-row items-center justify-between pb-2">

@@ -38,6 +38,7 @@ requirements.txt
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
+$env:GLM_API_KEY="your-glm-api-key"
 uvicorn backend.ai_service.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
@@ -84,9 +85,9 @@ curl -X POST "http://127.0.0.1:8000/api/chat/ask" ^
 
 ## 当前实现说明
 
-第一版为了让开发不被外部模型 Key 和向量数据库安装卡住，后端先使用纯 Python 本地稀疏向量检索与模板化回答。它已经保留了清晰替换点：
+当前版本已支持 GLM `embedding-3` 嵌入模型。配置 `GLM_API_KEY` 后，文档入库会保存 2048 维 dense embedding，问答检索会优先使用向量相似度；未配置 Key 时会自动降级到纯 Python 本地稀疏检索，方便离线开发。
 
-- `vector_store_service.py` 后续可替换为 Chroma、pgvector 或 Qdrant。
+- `vector_store_service.py` 后续可继续替换为 Chroma、pgvector 或 Qdrant。
 - `rag_service.py` 后续可接入通义千问、Ollama 或 OpenAI Compatible API。
 - `routes.py` 已提供普通问答和 SSE 流式问答接口，方便 Next.js 前端对接。
 - `frontend/next-web` 已提供知识库上传、智能问答、文档列表、引用来源和服务状态展示。
@@ -94,7 +95,8 @@ curl -X POST "http://127.0.0.1:8000/api/chat/ask" ^
 ## 开发路线
 
 1. FastAPI RAG 核心链路。
-2. 真实 Embedding 与 Chroma 向量库。
+2. GLM Embedding-3 接入。
 3. Next.js 企业前端。
-4. Django 用户、权限、文档元数据和日志后台。
-5. Agent 工具调用、Dify 对照和 CrewAI 扩展。
+4. Chroma、pgvector 或 Qdrant 向量库。
+5. Django 用户、权限、文档元数据和日志后台。
+6. Agent 工具调用、Dify 对照和 CrewAI 扩展。

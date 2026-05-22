@@ -1,6 +1,6 @@
 "use client";
 
-import type { FormEvent } from "react";
+import { type FormEvent, useEffect, useRef } from "react";
 import type { Message } from "@/lib/types";
 import { samplePrompts } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -28,10 +28,16 @@ export function ChatPanel({
   conversationId,
   onAsk,
 }: ChatPanelProps) {
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
       {/* Hero */}
-      <Card className="rounded-xl">
+      <Card className="shrink-0 rounded-xl">
         <CardContent className="flex items-start justify-between gap-6 p-5">
           <div className="min-w-0">
             <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-brand-500">
@@ -55,8 +61,8 @@ export function ChatPanel({
       </Card>
 
       {/* Chat */}
-      <Card className="flex flex-1 flex-col overflow-hidden rounded-xl">
-        <CardHeader className="flex-row items-start justify-between gap-4 border-b pb-3">
+      <Card className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl">
+        <CardHeader className="flex shrink-0 flex-row items-start justify-between gap-4 border-b pb-3">
           <div>
             <p className="mb-0.5 text-xs font-semibold uppercase tracking-wider text-brand-500">
               基于知识库提问
@@ -72,8 +78,8 @@ export function ChatPanel({
           </div>
         </CardHeader>
 
-        <CardContent className="flex flex-1 flex-col gap-3 overflow-hidden p-4">
-          <ScrollArea className="min-h-[320px] flex-1 rounded-lg border border-border bg-muted/30">
+        <CardContent className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4">
+          <ScrollArea className="flex-1 rounded-lg border border-border bg-muted/30">
             <div className="flex flex-col gap-3 p-3">
               {messages.map((message) => (
                 <article
@@ -103,10 +109,11 @@ export function ChatPanel({
                   <p className="whitespace-pre-wrap">{message.content}</p>
                 </article>
               ))}
+              <div ref={bottomRef} />
             </div>
           </ScrollArea>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="shrink-0 flex flex-wrap gap-2">
             {samplePrompts.map((prompt) => (
               <Button
                 key={prompt}
@@ -121,7 +128,7 @@ export function ChatPanel({
             ))}
           </div>
 
-          <form className="flex items-end gap-2" onSubmit={onAsk}>
+          <form className="flex shrink-0 items-end gap-2" onSubmit={onAsk}>
             <label className="sr-only" htmlFor="question">
               输入企业知识库问题
             </label>
