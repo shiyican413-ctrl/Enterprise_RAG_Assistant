@@ -29,6 +29,33 @@ export type KnowledgeDocument = {
   metadata?: Record<string, string>;
 };
 
+export type DocumentChunk = {
+  chunk_id: string;
+  document_id: string;
+  document_name: string;
+  chunk_index: number;
+  content: string;
+  metadata?: Record<string, string>;
+  created_at: string;
+  embedding_model?: string | null;
+};
+
+export type DeleteDocumentResult = {
+  document_id: string;
+  deleted_chunks: number;
+};
+
+export type RebuildKnowledgeResult = {
+  message: string;
+  documents?: Array<{
+    document_id?: string;
+    document_name?: string;
+    file_name?: string;
+    chunk_count?: number;
+    error?: string;
+  }>;
+};
+
 export type StreamEvent =
   | {
       type: "answer_delta";
@@ -158,8 +185,68 @@ export async function uploadDocument(file: File): Promise<void> {
   });
 
   if (!response.ok) {
-    throw new Error(await response.text());
+    throw new Error(await readApiError(response));
   }
+}
+
+export async function deleteDocument(
+  documentId: string,
+): Promise<DeleteDocumentResult> {
+  const response = await fetch(`${API_BASE_URL}/api/documents/${documentId}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response));
+  }
+
+  return response.json();
+}
+
+export async function rebuildKnowledge(): Promise<RebuildKnowledgeResult> {
+  const response = await fetch(`${API_BASE_URL}/api/knowledge/rebuild`, {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response));
+  }
+
+  return response.json();
+}
+
+export async function fetchDocumentChunks(
+  documentId: string,
+): Promise<DocumentChunk[]> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/documents/${documentId}/chunks`,
+    { cache: "no-store" },
+  );
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response));
+  }
+
+  const payload = await response.json();
+  return payload.chunks ?? [];
+}
+
+async function readApiError(response: Response): Promise<string> {
+  const text = await response.text();
+  if (!text) {
+    return `Request failed with status ${response.status}`;
+  }
+
+  try {
+    const payload = JSON.parse(text) as { detail?: unknown };
+    if (typeof payload.detail === "string") {
+      return payload.detail;
+    }
+  } catch {
+    // Fall through to the raw response body.
+  }
+
+  return text;
 }
 
 export async function checkHealth(): Promise<boolean> {

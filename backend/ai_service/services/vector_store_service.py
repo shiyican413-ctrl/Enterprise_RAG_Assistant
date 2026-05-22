@@ -110,6 +110,14 @@ class LocalVectorStore:
             self._save()
         return deleted
 
+    def list_document_chunks(self, document_id: str) -> list[dict]:
+        chunks = [
+            chunk
+            for chunk in self._chunks
+            if chunk.document_id == document_id
+        ]
+        return [_chunk_payload(chunk) for chunk in sorted(chunks, key=lambda item: item.chunk_index)]
+
     def clear(self) -> None:
         self._chunks = []
         self._save()
@@ -311,6 +319,24 @@ class PostgresVectorStore:
             conn.commit()
         return deleted
 
+    def list_document_chunks(self, document_id: str) -> list[dict]:
+        with self._connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT
+                        id::text, document_id::text, document_name, chunk_index,
+                        content, metadata, created_at, embedding::text,
+                        embedding_model
+                    FROM document_chunks
+                    WHERE document_id = %s::uuid
+                    ORDER BY chunk_index ASC
+                    """,
+                    (document_id,),
+                )
+                chunks = [_chunk_from_row(row) for row in cur.fetchall()]
+        return [_chunk_payload(chunk) for chunk in chunks]
+
     def clear(self) -> None:
         with self._connect() as conn:
             with conn.cursor() as cur:
@@ -466,3 +492,16 @@ def _chunk_from_row(row) -> DocumentChunk:
         embedding=_parse_vector_literal(row[7]),
         embedding_model=row[8],
     )
+
+
+def _chunk_payload(chunk: DocumentChunk) -> dict:
+    return {
+        "chunk_id": chunk.id,
+        "document_id": chunk.document_id,
+        "document_name": chunk.document_name,
+        "chunk_index": chunk.chunk_index,
+        "content": chunk.content,
+        "metadata": chunk.metadata,
+        "created_at": chunk.created_at,
+        "embedding_model": chunk.embedding_model,
+    }

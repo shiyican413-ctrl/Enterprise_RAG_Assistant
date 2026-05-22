@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   ArrowLeft,
   CircleHelp,
@@ -11,14 +13,21 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { navItems, productHighlights } from "@/lib/types";
+import { productHighlights } from "@/lib/types";
 
 type SidebarProps = {
   isHealthy: boolean;
 };
 
+const navItems = [
+  { label: "智能问答", href: "/", icon: FileSearch },
+  { label: "知识库", href: "/knowledge", icon: Database },
+  { label: "会话记录", href: "/conversations", icon: FileClock, disabled: true },
+  { label: "权限审计", href: "/audit", icon: ShieldCheck, disabled: true },
+];
+
 export function Sidebar({ isHealthy }: SidebarProps) {
-  const navIcons = [FileSearch, Database, FileClock, ShieldCheck];
+  const pathname = usePathname();
   const highlightIcons = [Route, FileSearch, Database, ShieldCheck];
   const highlightItems = productHighlights.map((label, index) => ({
     label,
@@ -34,9 +43,8 @@ export function Sidebar({ isHealthy }: SidebarProps) {
   return (
     <aside className="flex h-full w-full flex-col border-r border-[#e8ebf1] bg-[#f7f8fb]">
       <div className="flex h-[72px] items-center gap-3 px-6">
-        <div className="relative h-6 w-8 shrink-0">
-          <span className="absolute left-0 top-0 h-2 w-8 skew-x-[-24deg] bg-[#111317]" />
-          <span className="absolute bottom-0 left-0 h-2 w-8 skew-x-[-24deg] bg-[#111317]" />
+        <div className="relative grid size-11 shrink-0 place-items-center rounded-full bg-[#111317] text-sm font-bold text-white shadow-[0_10px_24px_rgba(17,19,23,0.18)]">
+          R
         </div>
         <div className="text-[20px] font-bold leading-none tracking-normal text-[#15181d]">
           企业 <span className="ml-2">RAG</span>
@@ -51,20 +59,30 @@ export function Sidebar({ isHealthy }: SidebarProps) {
       <nav className="flex-1 px-3">
         <p className="px-3 pb-3 text-sm font-medium text-[#9aa0aa]">核心功能</p>
         <div className="grid gap-1.5">
-          {navItems.map((item, index) => {
-            const Icon = navIcons[index] ?? FileSearch;
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const isActive =
+              item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+            const className = cn(
+              "flex h-11 items-center gap-3 rounded-[10px] px-4 text-[16px] font-medium text-[#262a31] transition-colors hover:bg-[#ebeef4]",
+              isActive && "bg-[#ebeef4] font-semibold ring-2 ring-[#111317]",
+              item.disabled && "cursor-not-allowed opacity-60 hover:bg-transparent",
+            );
+
+            if (item.disabled) {
+              return (
+                <div key={item.label} className={className} aria-disabled="true">
+                  <Icon className="size-5" strokeWidth={2.1} />
+                  <span>{item.label}</span>
+                </div>
+              );
+            }
+
             return (
-              <button
-                key={item}
-                type="button"
-                className={cn(
-                  "flex h-11 items-center gap-3 rounded-[10px] px-4 text-[16px] font-medium text-[#262a31] transition-colors hover:bg-[#ebeef4]",
-                  index === 0 && "bg-[#ebeef4]",
-                )}
-              >
+              <Link key={item.label} href={item.href} className={className}>
                 <Icon className="size-5" strokeWidth={2.1} />
-                <span>{item}</span>
-              </button>
+                <span>{item.label}</span>
+              </Link>
             );
           })}
         </div>
@@ -93,7 +111,7 @@ export function Sidebar({ isHealthy }: SidebarProps) {
             <button
               key={item.label}
               type="button"
-            className="flex h-11 w-full items-center gap-3 rounded-[10px] px-4 text-[16px] font-medium text-[#262a31] transition-colors hover:bg-[#ebeef4]"
+              className="flex h-11 w-full items-center gap-3 rounded-[10px] px-4 text-[16px] font-medium text-[#262a31] transition-colors hover:bg-[#ebeef4]"
             >
               <Icon
                 className={cn(

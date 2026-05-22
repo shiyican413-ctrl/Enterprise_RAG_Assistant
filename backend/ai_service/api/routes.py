@@ -1,4 +1,5 @@
 import json
+import logging
 from pathlib import Path
 from typing import AsyncIterator
 
@@ -13,6 +14,7 @@ from backend.ai_service.services.storage_factory import create_history_service, 
 
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 vector_store = create_vector_store()
 knowledge_service = KnowledgeService(vector_store=vector_store)
 history_service = create_history_service()
@@ -34,6 +36,9 @@ async def upload_document(file: UploadFile = File(...)) -> dict:
         result = await knowledge_service.ingest_upload(file)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Document ingestion failed")
+        raise HTTPException(status_code=500, detail=f"Document ingestion failed: {exc}") from exc
     return {"message": "document ingested", **result}
 
 
@@ -48,6 +53,14 @@ def delete_document(document_id: str) -> dict:
     if deleted_chunks == 0:
         raise HTTPException(status_code=404, detail="document not found")
     return {"document_id": document_id, "deleted_chunks": deleted_chunks}
+
+
+@router.get("/api/documents/{document_id}/chunks")
+def list_document_chunks(document_id: str) -> dict:
+    return {
+        "document_id": document_id,
+        "chunks": vector_store.list_document_chunks(document_id),
+    }
 
 
 @router.post("/api/knowledge/rebuild")

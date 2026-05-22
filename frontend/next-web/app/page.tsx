@@ -155,21 +155,37 @@ export default function Home() {
   }
 
   async function handleUpload() {
-    const file = fileRef.current?.files?.[0];
-    if (!file || isUploading) return;
+    const files = Array.from(fileRef.current?.files ?? []);
+    if (isUploading) return;
+    if (files.length === 0) {
+      setNotice("请先选择要上传的文件。");
+      return;
+    }
 
     setIsUploading(true);
-    setNotice(undefined);
+    setNotice(`正在入库 0/${files.length}`);
+    const failed: string[] = [];
     try {
-      await uploadDocument(file);
-      setNotice(`已完成入库：${file.name}`);
+      for (const [index, file] of files.entries()) {
+        setNotice(`正在入库 ${index + 1}/${files.length}：${file.name}`);
+        try {
+          await uploadDocument(file);
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : "上传失败";
+          failed.push(`${file.name}：${reason}`);
+        }
+      }
+
       if (fileRef.current) fileRef.current.value = "";
       setSelectedFileName("尚未选择文件");
       await refreshConsole();
-    } catch (error) {
-      setNotice(
-        error instanceof Error ? error.message : "上传失败，请检查文件格式。",
-      );
+
+      if (failed.length) {
+        setNotice(`已完成 ${files.length - failed.length}/${files.length} 个文件，失败：${failed.join("；")}`);
+        return;
+      }
+
+      setNotice(`已完成入库：${files.length} 个文件`);
     } finally {
       setIsUploading(false);
     }

@@ -45,7 +45,18 @@ export function InspectorPanel({
   );
 
   function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
-    onFileSelect(e.target.files?.[0]?.name ?? "尚未选择文件");
+    const files = Array.from(e.target.files ?? []);
+    if (files.length === 0) {
+      onFileSelect("尚未选择文件");
+      return;
+    }
+
+    if (files.length === 1) {
+      onFileSelect(files[0].name);
+      return;
+    }
+
+    onFileSelect(`已选择 ${files.length} 个文件`);
   }
 
   return (
@@ -91,6 +102,7 @@ export function InspectorPanel({
               <input
                 accept=".txt,.md,.csv,.json,.pdf"
                 id="document"
+                multiple
                 onChange={handleFileChange}
                 ref={fileRef}
                 type="file"
