@@ -2,7 +2,7 @@
 
 面向企业内部知识库、制度查询、产品资料问答和客服辅助场景的 RAG 智能问答平台。
 
-当前仓库已从方案文档进入开发阶段，第一版先落地 `FastAPI AI Service MVP`，用于验证完整 RAG 主链路：
+当前仓库已从方案文档进入开发阶段，已落地 `FastAPI AI Service MVP` 和 `Next.js 企业前端控制台`，用于验证完整 RAG 主链路：
 
 ```text
 文档上传 -> 文本解析 -> 文本切分 -> 本地知识库持久化 -> 相似度检索 -> 带引用问答 -> 会话历史
@@ -18,6 +18,10 @@ backend/
     services/            RAG、知识库、检索、会话服务
     config.py            配置
     main.py              FastAPI 入口
+frontend/
+  next-web/
+    app/                 Next.js App Router 页面与全局样式
+    lib/                 前端 API 调用封装
 data/
   sample_policy.txt      示例企业制度文档
   uploads/               上传文件目录
@@ -28,7 +32,7 @@ requirements.txt
 项目架构与功能方案.md
 ```
 
-## 快速开始
+## 后端快速开始
 
 ```bash
 python -m venv .venv
@@ -38,6 +42,28 @@ uvicorn backend.ai_service.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 打开 `http://127.0.0.1:8000/docs` 查看接口文档。
+
+## 前端快速开始
+
+```bash
+cd frontend/next-web
+npm install
+npm run dev
+```
+
+打开 `http://127.0.0.1:3000` 查看企业 RAG 助手控制台。
+
+默认前端会连接：
+
+```text
+http://127.0.0.1:8000
+```
+
+如需修改后端地址，可以设置：
+
+```bash
+NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
+```
 
 ## 示例调用
 
@@ -58,11 +84,12 @@ curl -X POST "http://127.0.0.1:8000/api/chat/ask" ^
 
 ## 当前实现说明
 
-第一版为了让开发不被外部模型 Key 和向量数据库安装卡住，先使用纯 Python 本地稀疏向量检索与模板化回答。它已经保留了清晰替换点：
+第一版为了让开发不被外部模型 Key 和向量数据库安装卡住，后端先使用纯 Python 本地稀疏向量检索与模板化回答。它已经保留了清晰替换点：
 
 - `vector_store_service.py` 后续可替换为 Chroma、pgvector 或 Qdrant。
 - `rag_service.py` 后续可接入通义千问、Ollama 或 OpenAI Compatible API。
 - `routes.py` 已提供普通问答和 SSE 流式问答接口，方便 Next.js 前端对接。
+- `frontend/next-web` 已提供知识库上传、智能问答、文档列表、引用来源和服务状态展示。
 
 ## 开发路线
 
