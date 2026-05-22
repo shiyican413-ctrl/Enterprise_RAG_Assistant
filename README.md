@@ -52,6 +52,14 @@ GLM_FAST_MODEL=GLM-4V-Flash
 GLM_THINKING_MODEL=GLM-4.1V-Thinking-Flash
 ```
 
+当前使用 PostgreSQL + pgvector 作为知识库和会话存储，在 `.env` 中配置：
+
+```text
+DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/enterprise_rag
+```
+
+首次启动时服务会自动执行 `CREATE EXTENSION IF NOT EXISTS vector`，并创建 `documents`、`document_chunks`、`chat_turns` 表。数据库需要提前创建好，并安装 pgvector 扩展。上传入库需要配置 `GLM_API_KEY`，用于生成 pgvector 检索所需的 embedding。
+
 打开 `http://127.0.0.1:8000/docs` 查看接口文档。
 
 ## 前端快速开始

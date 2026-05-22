@@ -5,3 +5,4 @@ pydantic>=2.11.0
 pypdf>=5.8.0
 pytest>=8.4.0
 httpx>=0.28.0
+psycopg[binary]>=3.2.0

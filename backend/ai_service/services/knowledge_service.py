@@ -7,12 +7,12 @@ from fastapi import UploadFile
 from backend.ai_service.config import CHUNK_OVERLAP, CHUNK_SIZE, SUPPORTED_EXTENSIONS, UPLOAD_DIR
 from backend.ai_service.loaders.document_loader import load_document_text
 from backend.ai_service.services.text_splitter import split_text
-from backend.ai_service.services.vector_store_service import LocalVectorStore
+from backend.ai_service.services.vector_store_service import PostgresVectorStore
 
 
 class KnowledgeService:
-    def __init__(self, vector_store: LocalVectorStore | None = None) -> None:
-        self.vector_store = vector_store or LocalVectorStore()
+    def __init__(self, vector_store: PostgresVectorStore | None = None) -> None:
+        self.vector_store = vector_store or PostgresVectorStore()
         UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
     async def ingest_upload(self, file: UploadFile) -> dict:

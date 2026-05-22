@@ -7,16 +7,15 @@ from fastapi.responses import StreamingResponse
 
 from backend.ai_service.api.schemas import AskRequest, AskResponse
 from backend.ai_service.config import APP_VERSION, DATA_DIR
-from backend.ai_service.services.history_service import HistoryService
 from backend.ai_service.services.knowledge_service import KnowledgeService
 from backend.ai_service.services.rag_service import RAGService
-from backend.ai_service.services.vector_store_service import LocalVectorStore
+from backend.ai_service.services.storage_factory import create_history_service, create_vector_store
 
 
 router = APIRouter()
-vector_store = LocalVectorStore()
+vector_store = create_vector_store()
 knowledge_service = KnowledgeService(vector_store=vector_store)
-history_service = HistoryService()
+history_service = create_history_service()
 rag_service = RAGService(vector_store=vector_store, history_service=history_service)
 
 

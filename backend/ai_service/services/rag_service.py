@@ -2,19 +2,19 @@ from collections.abc import AsyncIterator
 
 from backend.ai_service.config import TOP_K
 from backend.ai_service.services.chat_model_service import AnswerMode, GLMChatClient
-from backend.ai_service.services.history_service import HistoryService
-from backend.ai_service.services.vector_store_service import LocalVectorStore, SearchResult
+from backend.ai_service.services.history_service import HistoryService, PostgresHistoryService
+from backend.ai_service.services.vector_store_service import PostgresVectorStore, SearchResult
 
 
 class RAGService:
     def __init__(
         self,
-        vector_store: LocalVectorStore | None = None,
+        vector_store: PostgresVectorStore | None = None,
         history_service: HistoryService | None = None,
         chat_client: GLMChatClient | None = None,
     ) -> None:
-        self.vector_store = vector_store or LocalVectorStore()
-        self.history_service = history_service or HistoryService()
+        self.vector_store = vector_store or PostgresVectorStore()
+        self.history_service = history_service or PostgresHistoryService()
         self.chat_client = chat_client or GLMChatClient()
 
     def ask(
@@ -142,6 +142,12 @@ def _build_template_answer(question: str, results: list[SearchResult]) -> str:
     evidence = "\n".join(
         f"{index}. {result.chunk.content[:260]}"
         for index, result in enumerate(results[:3], start=1)
+    )
+
+    return (
+        f"根据当前知识库中最相关的资料，关于“{question}”可以这样理解：\n\n"
+        f"{evidence}\n\n"
+        "以上回答来自检索片段的归纳整理。"
     )
 
 

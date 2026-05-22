@@ -35,6 +35,8 @@ CHUNK_SIZE = 700
 CHUNK_OVERLAP = 120
 TOP_K = 4
 
+DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+
 SUPPORTED_EXTENSIONS = {".txt", ".md", ".csv", ".json", ".pdf"}
 
 GLM_API_KEY = os.getenv("GLM_API_KEY", "").strip()
