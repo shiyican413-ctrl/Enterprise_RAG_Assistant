@@ -76,6 +76,48 @@ def test_rag_answer_mode_uses_selected_chat_model() -> None:
     assert "三个工作日" in payload["answer"]
 
 
+def test_rag_ignores_dense_results_below_score_threshold() -> None:
+    class FakeEmbeddingClient:
+        enabled = True
+        model = "fake-embedding"
+
+        def embed_texts(self, texts):
+            embeddings = []
+            for text in texts:
+                if "reimbursement" in text.lower():
+                    embeddings.append([1.0, 0.0])
+                else:
+                    embeddings.append([0.0, 1.0])
+            return embeddings
+
+    class UnexpectedChatClient:
+        enabled = True
+
+        def complete(self, messages, mode, temperature=0.2):
+            raise AssertionError("chat model should not be called for irrelevant retrieval")
+
+    with TemporaryDirectory() as directory:
+        vector_store = LocalVectorStore(
+            index_file=Path(directory) / "chunks.json",
+            embedding_client=FakeEmbeddingClient(),
+            score_threshold=0.45,
+        )
+        vector_store.add_document(
+            document_name="policy.txt",
+            chunks=["Reimbursement requests are paid after finance approval."],
+        )
+        service = RAGService(
+            vector_store=vector_store,
+            history_service=HistoryService(history_file=Path(directory) / "history.json"),
+            chat_client=UnexpectedChatClient(),
+        )
+
+        payload = service.ask("How should the data center firewall be configured?")
+
+    assert payload["sources"] == []
+    assert payload["model"] is None
+
+
 def test_rag_stream_ask_emits_deltas_and_done() -> None:
     class FakeStreamingChatClient:
         enabled = True

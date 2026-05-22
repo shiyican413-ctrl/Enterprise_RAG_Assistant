@@ -216,13 +216,13 @@ function MessageBubble({ message }: { message: Message }) {
           </div>
         ) : null}
 
-        <div className="rounded-[12px] bg-[#f3f5f8] px-5 py-4 text-base leading-8 text-[#5f6673]">
-          <div className="mb-3 flex items-center gap-2.5 text-[18px] font-semibold text-[#242933]">
+        <div className="rounded-[12px] border border-[#dfe5ef] bg-white px-5 py-4 text-[17px] font-medium leading-8 text-[#1f2937] shadow-[0_8px_24px_rgba(16,24,40,0.06)]">
+          <div className="mb-3 flex items-center gap-2.5 text-[18px] font-bold text-[#111827]">
             <Brain className="size-5" />
             {message.model ? "助手回答" : "生成中"}
             {!message.model ? <span>....</span> : null}
           </div>
-          <p className="whitespace-pre-wrap">{message.content}</p>
+          <p className="whitespace-pre-wrap tracking-normal">{message.content}</p>
           {message.model ? (
             <div className="mt-4 flex flex-wrap items-center gap-2 text-sm font-semibold text-[#7a8393]">
               <span className="rounded-[6px] bg-white px-2.5 py-1">

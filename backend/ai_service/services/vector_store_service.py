@@ -8,7 +8,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Iterable
 
-from backend.ai_service.config import DATABASE_URL, INDEX_FILE, KNOWLEDGE_DIR
+from backend.ai_service.config import (
+    DATABASE_URL,
+    INDEX_FILE,
+    KNOWLEDGE_DIR,
+    VECTOR_SCORE_THRESHOLD,
+)
 from backend.ai_service.services.embedding_service import GLMEmbeddingClient
 
 
@@ -41,9 +46,11 @@ class LocalVectorStore:
         self,
         index_file: Path = INDEX_FILE,
         embedding_client: GLMEmbeddingClient | None = None,
+        score_threshold: float = VECTOR_SCORE_THRESHOLD,
     ) -> None:
         self.index_file = index_file
         self.embedding_client = embedding_client or GLMEmbeddingClient()
+        self.score_threshold = score_threshold
         KNOWLEDGE_DIR.mkdir(parents=True, exist_ok=True)
         self._chunks: list[DocumentChunk] = self._load()
 
@@ -119,7 +126,7 @@ class LocalVectorStore:
             if not chunk.embedding:
                 continue
             score = _dense_cosine_similarity(query_embedding, chunk.embedding)
-            if score > 0:
+            if score >= self.score_threshold:
                 results.append(SearchResult(chunk=chunk, score=score))
 
         return sorted(results, key=lambda result: result.score, reverse=True)[:top_k]
@@ -204,11 +211,13 @@ class PostgresVectorStore:
         self,
         database_url: str = DATABASE_URL,
         embedding_client: GLMEmbeddingClient | None = None,
+        score_threshold: float = VECTOR_SCORE_THRESHOLD,
     ) -> None:
         if not database_url:
             raise RuntimeError("DATABASE_URL is required for PostgreSQL storage")
         self.database_url = database_url
         self.embedding_client = embedding_client or GLMEmbeddingClient()
+        self.score_threshold = score_threshold
         self._ensure_schema()
 
     def add_document(
@@ -324,11 +333,14 @@ class PostgresVectorStore:
                         1 - (embedding <=> %s::vector) AS score
                     FROM document_chunks
                     WHERE embedding IS NOT NULL
+                        AND 1 - (embedding <=> %s::vector) >= %s
                     ORDER BY embedding <=> %s::vector
                     LIMIT %s
                     """,
                     (
                         _vector_literal(query_embedding),
+                        _vector_literal(query_embedding),
+                        self.score_threshold,
                         _vector_literal(query_embedding),
                         top_k,
                     ),
