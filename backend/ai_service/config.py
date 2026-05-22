@@ -9,6 +9,25 @@ KNOWLEDGE_DIR = DATA_DIR / "knowledge_base"
 INDEX_FILE = KNOWLEDGE_DIR / "chunks.json"
 HISTORY_FILE = KNOWLEDGE_DIR / "history.json"
 
+
+def _load_local_env() -> None:
+    env_file = BASE_DIR / ".env"
+    if not env_file.exists():
+        return
+
+    for raw_line in env_file.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip("\"'")
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
+_load_local_env()
+
 APP_NAME = "Enterprise RAG Assistant AI Service"
 APP_VERSION = "0.1.0"
 

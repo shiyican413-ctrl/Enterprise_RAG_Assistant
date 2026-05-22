@@ -107,9 +107,9 @@ export default function Home() {
   }
 
   return (
-    <div className="grid h-screen grid-cols-1 gap-4 overflow-hidden p-4 md:grid-cols-[240px_minmax(0,1fr)] xl:grid-cols-[240px_minmax(0,1fr)_320px]">
+    <div className="grid min-h-screen grid-cols-1 gap-4 p-4 md:grid-cols-[240px_minmax(0,1fr)] xl:grid-cols-[240px_minmax(0,1fr)_320px]">
       <Sidebar isHealthy={isHealthy} />
-      <main className="flex min-w-0 flex-col gap-4 overflow-hidden">
+      <main className="flex min-w-0 flex-col gap-4">
         <ChatPanel
           messages={messages}
           question={question}
@@ -118,12 +118,8 @@ export default function Home() {
           conversationId={conversationId}
           onAsk={handleAsk}
         />
-        <div className="shrink-0">
-          <MetricsBar documents={documents} latestSources={latestSources} />
-        </div>
-        <div className="shrink-0">
-          <PipelineBar />
-        </div>
+        <MetricsBar documents={documents} latestSources={latestSources} />
+        <PipelineBar />
       </main>
       <InspectorPanel
         documents={documents}

@@ -12,7 +12,7 @@ type SidebarProps = {
 
 export function Sidebar({ isHealthy }: SidebarProps) {
   return (
-    <aside className="flex h-full flex-col gap-5 rounded-xl border border-border bg-card p-4">
+    <aside className="sticky top-4 flex h-[calc(100vh-2rem)] flex-col gap-5 rounded-xl border border-border bg-card p-4">
       <div className="flex items-center gap-3">
         <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 text-white">
           <LogoIcon className="size-5" />

@@ -29,29 +29,33 @@ export function ChatPanel({
   onAsk,
 }: ChatPanelProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const previousMessageCountRef = useRef(messages.length);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messages.length > previousMessageCountRef.current) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    }
+    previousMessageCountRef.current = messages.length;
   }, [messages]);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4">
+    <div className="flex flex-col gap-4 md:h-[calc(100vh-2rem)] md:min-h-0">
       {/* Hero */}
-      <Card className="shrink-0 rounded-xl">
-        <CardContent className="flex items-start justify-between gap-6 p-5">
+      <Card className="rounded-xl">
+        <CardContent className="flex items-start justify-between gap-3 p-3">
           <div className="min-w-0">
-            <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-brand-500">
+            <p className="mb-0.5 text-xs font-semibold uppercase tracking-wider text-brand-500">
               企业级检索增强生成智能问答
             </p>
-            <h1 className="text-xl font-bold leading-tight tracking-tight">
+            <h1 className="text-base font-bold leading-tight tracking-tight">
               让企业文档变成可检索、可引用、可追溯的知识助手。
             </h1>
-            <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">
+            <p className="mt-0.5 max-w-xl text-xs leading-tight text-muted-foreground">
               系统支持文档上传、文本切分、知识检索、问答生成、引用溯源与会话记录，
               为企业制度查询、产品资料问答和客服辅助提供统一入口。
             </p>
           </div>
-          <div className="shrink-0 rounded-lg border border-border bg-muted/50 px-3 py-2 text-center">
+          <div className="shrink-0 rounded-lg border border-border bg-muted/50 px-3 py-1 text-center">
             <span className="block text-xs font-medium text-muted-foreground">当前会话</span>
             <strong className="mt-1 block text-sm font-semibold text-brand-600">
               {conversationId ? conversationId.slice(0, 8) : "新会话"}
@@ -61,7 +65,7 @@ export function ChatPanel({
       </Card>
 
       {/* Chat */}
-      <Card className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl">
+      <Card className="flex min-h-0 flex-1 flex-col rounded-xl">
         <CardHeader className="flex shrink-0 flex-row items-start justify-between gap-4 border-b pb-3">
           <div>
             <p className="mb-0.5 text-xs font-semibold uppercase tracking-wider text-brand-500">
@@ -79,7 +83,7 @@ export function ChatPanel({
         </CardHeader>
 
         <CardContent className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4">
-          <ScrollArea className="flex-1 rounded-lg border border-border bg-muted/30">
+          <ScrollArea className="h-[320px] rounded-lg border border-border bg-muted/30 md:h-auto md:min-h-0 md:flex-1">
             <div className="flex flex-col gap-3 p-3">
               {messages.map((message) => (
                 <article

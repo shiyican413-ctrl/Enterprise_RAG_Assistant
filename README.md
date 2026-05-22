@@ -38,8 +38,15 @@ requirements.txt
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
-$env:GLM_API_KEY="your-glm-api-key"
 uvicorn backend.ai_service.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+可以在项目根目录创建本地 `.env` 配置 GLM Embedding：
+
+```text
+GLM_API_KEY=your-glm-api-key
+GLM_EMBEDDING_MODEL=embedding-3
+GLM_EMBEDDING_URL=https://open.bigmodel.cn/api/paas/v4/embeddings
 ```
 
 打开 `http://127.0.0.1:8000/docs` 查看接口文档。
