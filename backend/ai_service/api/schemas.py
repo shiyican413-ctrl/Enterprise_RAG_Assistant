@@ -12,10 +12,13 @@ class AskRequest(BaseModel):
 
 class AskResponse(BaseModel):
     conversation_id: str
+    trace_id: str | None = None
     answer: str
     sources: list[dict]
     answer_mode: Literal["fast", "thinking"] = "fast"
     model: str | None = None
+    agent_steps: list[dict] = Field(default_factory=list)
+    route: list[dict] = Field(default_factory=list)
 
 
 class ErrorResponse(BaseModel):

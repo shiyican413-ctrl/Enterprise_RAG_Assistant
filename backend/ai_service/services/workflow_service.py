@@ -1,0 +1,151 @@
+from collections.abc import AsyncIterator
+
+from backend.ai_service.config import TOP_K
+from backend.ai_service.services.chat_model_service import AnswerMode
+from backend.ai_service.services.executor_service import ExecutorService
+from backend.ai_service.services.guardrail_service import GuardrailService
+from backend.ai_service.services.memory_service import MemoryService
+from backend.ai_service.services.planner_service import PlannerService
+from backend.ai_service.services.trace_service import TraceContext, TraceService, traced_step
+
+
+class ChatWorkflow:
+    """Fixed application state flow; no model calls live in this layer."""
+
+    def __init__(
+        self,
+        *,
+        memory: MemoryService,
+        planner: PlannerService,
+        executor: ExecutorService,
+        trace_service: TraceService,
+        guardrails: GuardrailService | None = None,
+    ) -> None:
+        self.memory = memory
+        self.planner = planner
+        self.executor = executor
+        self.trace_service = trace_service
+        self.guardrails = guardrails or GuardrailService()
+
+    def run_chat(
+        self,
+        *,
+        trace: TraceContext,
+        question: str,
+        conversation_id: str | None = None,
+        top_k: int = TOP_K,
+        answer_mode: AnswerMode = "fast",
+    ) -> dict:
+        with traced_step(self.trace_service, trace, "guardrails.input"):
+            guardrail = self.guardrails.validate_chat_input(question)
+        if not guardrail.allowed:
+            raise ValueError(guardrail.reason)
+
+        with traced_step(self.trace_service, trace, "memory.load"):
+            memory_context = self.memory.load_context(conversation_id)
+
+        with traced_step(self.trace_service, trace, "planner.create_plan"):
+            plan = self.planner.create_plan(
+                question=question,
+                answer_mode=answer_mode,
+                memory=memory_context,
+            )
+
+        execution = self.executor.execute(plan=plan, trace=trace, top_k=top_k)
+
+        with traced_step(self.trace_service, trace, "memory.append_turn"):
+            turn = self.memory.append_turn(
+                question=question,
+                answer=execution.answer,
+                sources=execution.sources,
+                conversation_id=conversation_id,
+            )
+
+        return {
+            "conversation_id": turn["conversation_id"],
+            "trace_id": trace.trace_id,
+            "answer": execution.answer,
+            "sources": execution.sources,
+            "answer_mode": answer_mode,
+            "model": execution.model,
+            "agent_steps": execution.agent_steps,
+            "route": self.trace_service.route(trace),
+        }
+
+    async def stream_chat(
+        self,
+        *,
+        trace: TraceContext,
+        question: str,
+        conversation_id: str | None = None,
+        top_k: int = TOP_K,
+        answer_mode: AnswerMode = "fast",
+    ) -> AsyncIterator[dict]:
+        def route_step() -> dict:
+            return {"type": "route_step", "step": self.trace_service.latest_route_step(trace)}
+
+        yield {"type": "phase", "layer": "guardrails", "status": "start", "label": "输入安全校验"}
+        with traced_step(self.trace_service, trace, "guardrails.input"):
+            guardrail = self.guardrails.validate_chat_input(question)
+        if not guardrail.allowed:
+            raise ValueError(guardrail.reason)
+        yield route_step()
+        yield {"type": "phase", "layer": "guardrails", "status": "done", "label": "输入安全校验"}
+
+        yield {"type": "phase", "layer": "memory", "status": "start", "label": "加载会话记忆"}
+        with traced_step(self.trace_service, trace, "memory.load"):
+            memory_context = self.memory.load_context(conversation_id)
+        yield route_step()
+        yield {"type": "phase", "layer": "memory", "status": "done", "label": "加载会话记忆"}
+
+        yield {"type": "phase", "layer": "planner", "status": "start", "label": "规划层 · 分析问题并制定路线"}
+        with traced_step(self.trace_service, trace, "planner.create_plan"):
+            plan = self.planner.create_plan(
+                question=question,
+                answer_mode=answer_mode,
+                memory=memory_context,
+            )
+        yield route_step()
+        yield {
+            "type": "plan",
+            "strategy": plan.strategy,
+            "rationale": plan.rationale,
+            "steps": [{"name": step.name, "step_type": step.step_type} for step in plan.steps],
+        }
+        yield {"type": "phase", "layer": "planner", "status": "done", "label": "规划层 · 分析问题并制定路线"}
+
+        execution_result: dict | None = None
+        async for event in self.executor.stream_execute(
+            plan=plan,
+            trace=trace,
+            top_k=top_k,
+        ):
+            if event.get("type") == "executor_result":
+                execution_result = event
+                continue
+            yield event
+
+        execution_result = execution_result or {
+            "answer": "",
+            "sources": [],
+            "model": None,
+        }
+
+        with traced_step(self.trace_service, trace, "memory.append_turn"):
+            turn = self.memory.append_turn(
+                question=question,
+                answer=str(execution_result.get("answer") or ""),
+                sources=list(execution_result.get("sources") or []),
+                conversation_id=conversation_id,
+            )
+        yield route_step()
+
+        yield {"type": "sources", "content": execution_result.get("sources") or []}
+        yield {
+            "type": "done",
+            "conversation_id": turn["conversation_id"],
+            "trace_id": trace.trace_id,
+            "answer_mode": answer_mode,
+            "model": execution_result.get("model"),
+            "route": self.trace_service.route(trace),
+        }

@@ -6,11 +6,11 @@ from typing import Literal
 import httpx
 
 from backend.ai_service.config import (
+    ARK_API_KEY,
+    ARK_CHAT_URL,
     CHAT_TIMEOUT_SECONDS,
-    GLM_API_KEY,
-    GLM_CHAT_URL,
-    GLM_FAST_MODEL,
-    GLM_THINKING_MODEL,
+    DOUBAO_FAST_MODEL,
+    DOUBAO_THINKING_MODEL,
 )
 
 
@@ -30,13 +30,13 @@ class ChatModelDelta:
     model: str
 
 
-class GLMChatClient:
+class DoubaoChatClient:
     def __init__(
         self,
-        api_key: str = GLM_API_KEY,
-        url: str = GLM_CHAT_URL,
-        fast_model: str = GLM_FAST_MODEL,
-        thinking_model: str = GLM_THINKING_MODEL,
+        api_key: str = ARK_API_KEY,
+        url: str = ARK_CHAT_URL,
+        fast_model: str = DOUBAO_FAST_MODEL,
+        thinking_model: str = DOUBAO_THINKING_MODEL,
         timeout_seconds: float = CHAT_TIMEOUT_SECONDS,
     ) -> None:
         self.api_key = api_key
@@ -61,7 +61,7 @@ class GLMChatClient:
         temperature: float = 0.2,
     ) -> ChatModelResponse:
         if not self.enabled:
-            raise RuntimeError("GLM_API_KEY is not configured")
+            raise RuntimeError("ARK_API_KEY is not configured")
 
         model = self.model_for_mode(mode)
         payload = {
@@ -82,13 +82,13 @@ class GLMChatClient:
         body = response.json()
         choices = body.get("choices") or []
         if not choices:
-            raise RuntimeError("Invalid chat response from GLM")
+            raise RuntimeError("Invalid chat response from Doubao")
 
         message = choices[0].get("message") or {}
         content = _normalize_text(message.get("content"))
         reasoning_content = _normalize_text(message.get("reasoning_content"))
         if not content:
-            raise RuntimeError("Empty chat response from GLM")
+            raise RuntimeError("Empty chat response from Doubao")
 
         return ChatModelResponse(
             content=content,
@@ -103,7 +103,7 @@ class GLMChatClient:
         temperature: float = 0.2,
     ) -> AsyncIterator[ChatModelDelta]:
         if not self.enabled:
-            raise RuntimeError("GLM_API_KEY is not configured")
+            raise RuntimeError("ARK_API_KEY is not configured")
 
         model = self.model_for_mode(mode)
         payload = {
@@ -198,3 +198,6 @@ def _strip_model_markers(text: str) -> str:
     for marker in markers:
         text = text.replace(marker, "")
     return text.strip()
+
+
+GLMChatClient = DoubaoChatClient

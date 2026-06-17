@@ -1,4 +1,11 @@
-import type { AnswerMode, Source } from "@/lib/api";
+import type {
+  AgentStep,
+  AnswerMode,
+  PhaseState,
+  Plan,
+  RouteStep,
+  Source,
+} from "@/lib/api";
 
 export type Message = {
   id: string;
@@ -7,6 +14,11 @@ export type Message = {
   sources?: Source[];
   answerMode?: AnswerMode;
   model?: string | null;
+  traceId?: string | null;
+  agentSteps?: AgentStep[];
+  route?: RouteStep[];
+  plan?: Plan;
+  phases?: PhaseState[];
 };
 
 export const navItems = ["智能问答", "知识库", "会话记录", "权限审计"];

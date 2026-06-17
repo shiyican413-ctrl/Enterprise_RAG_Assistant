@@ -14,7 +14,7 @@ from backend.ai_service.config import (
     KNOWLEDGE_DIR,
     VECTOR_SCORE_THRESHOLD,
 )
-from backend.ai_service.services.embedding_service import GLMEmbeddingClient
+from backend.ai_service.services.embedding_service import BailianEmbeddingClient
 
 
 TOKEN_PATTERN = re.compile(r"[\w\u4e00-\u9fff]+", re.UNICODE)
@@ -40,16 +40,16 @@ class SearchResult:
 
 
 class LocalVectorStore:
-    """Small persistent vector store with GLM dense embeddings and sparse fallback."""
+    """Small persistent vector store with Bailian dense embeddings and sparse fallback."""
 
     def __init__(
         self,
         index_file: Path = INDEX_FILE,
-        embedding_client: GLMEmbeddingClient | None = None,
+        embedding_client: BailianEmbeddingClient | None = None,
         score_threshold: float = VECTOR_SCORE_THRESHOLD,
     ) -> None:
         self.index_file = index_file
-        self.embedding_client = embedding_client or GLMEmbeddingClient()
+        self.embedding_client = embedding_client or BailianEmbeddingClient()
         self.score_threshold = score_threshold
         KNOWLEDGE_DIR.mkdir(parents=True, exist_ok=True)
         self._chunks: list[DocumentChunk] = self._load()
@@ -218,13 +218,13 @@ class PostgresVectorStore:
     def __init__(
         self,
         database_url: str = DATABASE_URL,
-        embedding_client: GLMEmbeddingClient | None = None,
+        embedding_client: BailianEmbeddingClient | None = None,
         score_threshold: float = VECTOR_SCORE_THRESHOLD,
     ) -> None:
         if not database_url:
             raise RuntimeError("DATABASE_URL is required for PostgreSQL storage")
         self.database_url = database_url
-        self.embedding_client = embedding_client or GLMEmbeddingClient()
+        self.embedding_client = embedding_client or BailianEmbeddingClient()
         self.score_threshold = score_threshold
         self._ensure_schema()
 
@@ -359,12 +359,14 @@ class PostgresVectorStore:
                         1 - (embedding <=> %s::vector) AS score
                     FROM document_chunks
                     WHERE embedding IS NOT NULL
+                        AND vector_dims(embedding) = %s
                         AND 1 - (embedding <=> %s::vector) >= %s
                     ORDER BY embedding <=> %s::vector
                     LIMIT %s
                     """,
                     (
                         _vector_literal(query_embedding),
+                        len(query_embedding),
                         _vector_literal(query_embedding),
                         self.score_threshold,
                         _vector_literal(query_embedding),
@@ -408,7 +410,7 @@ class PostgresVectorStore:
         if not contents:
             return []
         if not self.embedding_client.enabled:
-            raise RuntimeError("GLM_API_KEY is required for pgvector document ingestion")
+            raise RuntimeError("DASHSCOPE_API_KEY is required for pgvector document ingestion")
         return self.embedding_client.embed_texts(contents)
 
     def _has_dense_embeddings(self) -> bool:

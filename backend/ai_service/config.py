@@ -40,19 +40,33 @@ DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 
 SUPPORTED_EXTENSIONS = {".txt", ".md", ".csv", ".json", ".pdf"}
 
-GLM_API_KEY = os.getenv("GLM_API_KEY", "").strip()
-GLM_EMBEDDING_URL = os.getenv(
-    "GLM_EMBEDDING_URL",
-    "https://open.bigmodel.cn/api/paas/v4/embeddings",
+DASHSCOPE_API_KEY = (
+    os.getenv("DASHSCOPE_API_KEY")
+    or os.getenv("BAILIAN_API_KEY")
+    or os.getenv("QWEN_API_KEY")
+    or ""
+).strip()
+BAILIAN_EMBEDDING_URL = os.getenv(
+    "BAILIAN_EMBEDDING_URL",
+    "https://dashscope.aliyuncs.com/compatible-mode/v1/embeddings",
 )
-GLM_EMBEDDING_MODEL = os.getenv("GLM_EMBEDDING_MODEL", "embedding-3")
-EMBEDDING_BATCH_SIZE = int(os.getenv("EMBEDDING_BATCH_SIZE", "16"))
+BAILIAN_EMBEDDING_MODEL = os.getenv("BAILIAN_EMBEDDING_MODEL", "text-embedding-v4")
+EMBEDDING_DIMENSIONS = int(os.getenv("EMBEDDING_DIMENSIONS", "2048"))
+EMBEDDING_BATCH_SIZE = int(os.getenv("EMBEDDING_BATCH_SIZE", "10"))
 EMBEDDING_TIMEOUT_SECONDS = float(os.getenv("EMBEDDING_TIMEOUT_SECONDS", "30"))
 
-GLM_CHAT_URL = os.getenv(
-    "GLM_CHAT_URL",
-    "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+ARK_API_KEY = (
+    os.getenv("ARK_API_KEY")
+    or os.getenv("DOUBAO_API_KEY")
+    or ""
+).strip()
+ARK_CHAT_URL = os.getenv(
+    "ARK_CHAT_URL",
+    "https://ark.cn-beijing.volces.com/api/v3/chat/completions",
 )
-GLM_FAST_MODEL = os.getenv("GLM_FAST_MODEL", "GLM-4V-Flash")
-GLM_THINKING_MODEL = os.getenv("GLM_THINKING_MODEL", "GLM-4.1V-Thinking-Flash")
+DOUBAO_FAST_MODEL = os.getenv("DOUBAO_FAST_MODEL", "doubao-seed-2-0-lite-260428")
+DOUBAO_THINKING_MODEL = os.getenv(
+    "DOUBAO_THINKING_MODEL",
+    "doubao-seed-2-0-lite-260428",
+)
 CHAT_TIMEOUT_SECONDS = float(os.getenv("CHAT_TIMEOUT_SECONDS", "60"))

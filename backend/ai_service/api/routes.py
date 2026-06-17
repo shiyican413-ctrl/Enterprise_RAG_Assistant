@@ -9,7 +9,7 @@ from fastapi.responses import StreamingResponse
 from backend.ai_service.api.schemas import AskRequest, AskResponse
 from backend.ai_service.config import APP_VERSION, DATA_DIR
 from backend.ai_service.services.knowledge_service import KnowledgeService
-from backend.ai_service.services.rag_service import RAGService
+from backend.ai_service.services.orchestrator_service import OrchestratorService
 from backend.ai_service.services.storage_factory import create_history_service, create_vector_store
 
 
@@ -18,7 +18,10 @@ logger = logging.getLogger(__name__)
 vector_store = create_vector_store()
 knowledge_service = KnowledgeService(vector_store=vector_store)
 history_service = create_history_service()
-rag_service = RAGService(vector_store=vector_store, history_service=history_service)
+orchestrator_service = OrchestratorService(
+    vector_store=vector_store,
+    history_service=history_service,
+)
 
 
 @router.get("/health")
@@ -72,7 +75,7 @@ def rebuild_from_uploads() -> dict:
 
 @router.post("/api/chat/ask", response_model=AskResponse)
 def ask(request: AskRequest) -> dict:
-    return rag_service.ask(
+    return orchestrator_service.handle_chat(
         question=request.question,
         conversation_id=request.conversation_id,
         top_k=request.top_k,
@@ -83,7 +86,7 @@ def ask(request: AskRequest) -> dict:
 @router.post("/api/chat/stream")
 async def stream(request: AskRequest) -> StreamingResponse:
     async def events() -> AsyncIterator[str]:
-        async for event in rag_service.stream_ask(
+        async for event in orchestrator_service.stream_chat(
             question=request.question,
             conversation_id=request.conversation_id,
             top_k=request.top_k,

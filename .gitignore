@@ -12,3 +12,8 @@ data/uploads/*
 data/knowledge_base/*
 !data/uploads/.gitkeep
 !data/knowledge_base/.gitkeep
+
+# Local run / tooling artifacts
+.run-logs/
+.understand-anything/
+*.tsbuildinfo

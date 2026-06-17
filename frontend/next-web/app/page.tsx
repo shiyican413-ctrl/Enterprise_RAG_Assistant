@@ -7,7 +7,15 @@ import {
   streamQuestion,
   uploadDocument,
 } from "@/lib/api";
-import type { AnswerMode, KnowledgeDocument, Source } from "@/lib/api";
+import type {
+  AgentStep,
+  AnswerMode,
+  KnowledgeDocument,
+  PhaseState,
+  Plan,
+  RouteStep,
+  Source,
+} from "@/lib/api";
 import type { Message } from "@/lib/types";
 import { Sidebar } from "@/components/sidebar";
 import { ChatPanel } from "@/components/chat-panel";
@@ -57,7 +65,60 @@ export default function Home() {
     const requestMode = answerMode;
     const assistantMessageId = crypto.randomUUID();
     let hasAssistantMessage = false;
+    let streamContent = "";
     let streamSources: Source[] = [];
+    let streamAgentSteps: AgentStep[] = [];
+    let streamRoute: RouteStep[] = [];
+    let streamPlan: Plan | undefined;
+    let streamPhases: PhaseState[] = [];
+    let streamModel: string | null | undefined;
+    let streamTraceId: string | null | undefined;
+
+    const upsertPhase = (phases: PhaseState[], next: PhaseState): PhaseState[] => {
+      const others = phases.filter((phase) => phase.layer !== next.layer);
+      return [...others, next];
+    };
+
+    const syncAssistant = () => {
+      setMessages((current) => {
+        if (!hasAssistantMessage) {
+          hasAssistantMessage = true;
+          return [
+            ...current,
+            {
+              id: assistantMessageId,
+              role: "assistant" as const,
+              content: streamContent,
+              sources: streamSources,
+              agentSteps: streamAgentSteps,
+              route: streamRoute,
+              plan: streamPlan,
+              phases: streamPhases,
+              model: streamModel,
+              traceId: streamTraceId,
+              answerMode: requestMode,
+            },
+          ];
+        }
+        return current.map((message) =>
+          message.id === assistantMessageId
+            ? {
+                ...message,
+                content: streamContent,
+                sources: streamSources,
+                agentSteps: streamAgentSteps,
+                route: streamRoute,
+                plan: streamPlan,
+                phases: streamPhases,
+                model: streamModel ?? message.model,
+                traceId: streamTraceId ?? message.traceId,
+                answerMode: message.answerMode ?? requestMode,
+              }
+            : message,
+        );
+      });
+    };
+
     setMessages((current) => [
       ...current,
       { id: crypto.randomUUID(), role: "user", content: trimmed },
@@ -68,57 +129,60 @@ export default function Home() {
 
     try {
       await streamQuestion(trimmed, requestMode, conversationId, (event) => {
-        if (event.type === "answer_delta") {
-          if (!hasAssistantMessage) {
-            hasAssistantMessage = true;
-            setMessages((current) => [
-              ...current,
-              {
-                id: assistantMessageId,
-                role: "assistant",
-                content: event.content,
-                sources: streamSources,
-                answerMode: requestMode,
-              },
-            ]);
-          } else {
-            setMessages((current) =>
-              current.map((message) =>
-                message.id === assistantMessageId
-                  ? { ...message, content: message.content + event.content }
-                  : message,
-              ),
-            );
+        if (event.type === "phase") {
+          streamPhases = upsertPhase(streamPhases, {
+            layer: event.layer,
+            label: event.label,
+            status: event.status === "start" ? "running" : "done",
+          });
+          syncAssistant();
+          return;
+        }
+
+        if (event.type === "plan") {
+          streamPlan = {
+            strategy: event.strategy,
+            rationale: event.rationale,
+            steps: event.steps,
+          };
+          syncAssistant();
+          return;
+        }
+
+        if (event.type === "route_step") {
+          if (event.step) {
+            streamRoute = [...streamRoute, event.step];
+            syncAssistant();
           }
+          return;
+        }
+
+        if (event.type === "agent_step") {
+          streamAgentSteps = [...streamAgentSteps, event.content];
+          syncAssistant();
           return;
         }
 
         if (event.type === "sources") {
           streamSources = event.content;
           setLatestSources(event.content);
-          setMessages((current) =>
-            current.map((message) =>
-              message.id === assistantMessageId
-                ? { ...message, sources: event.content }
-                : message,
-            ),
-          );
+          syncAssistant();
+          return;
+        }
+
+        if (event.type === "answer_delta") {
+          streamContent += event.content;
+          syncAssistant();
           return;
         }
 
         if (event.type === "done") {
           setConversationId(event.conversation_id);
-          setMessages((current) =>
-            current.map((message) =>
-              message.id === assistantMessageId
-                ? {
-                    ...message,
-                    answerMode: event.answer_mode,
-                    model: event.model,
-                  }
-                : message,
-            ),
-          );
+          streamModel = event.model ?? null;
+          streamTraceId = event.trace_id ?? null;
+          streamRoute = event.route ?? streamRoute;
+          syncAssistant();
+          return;
         }
       });
     } catch (error) {
@@ -126,28 +190,10 @@ export default function Home() {
         error instanceof Error
           ? error.message
           : "问答请求失败，请确认后端服务是否启动。";
-      setMessages((current) => {
-        if (hasAssistantMessage) {
-          return current.map((message) =>
-            message.id === assistantMessageId
-              ? {
-                  ...message,
-                  content: `${message.content}\n\n流式生成中断：${errorMessage}`,
-                }
-              : message,
-          );
-        }
-
-        return [
-          ...current,
-          {
-            id: assistantMessageId,
-            role: "assistant",
-            content: `流式生成失败：${errorMessage}`,
-            answerMode: requestMode,
-          },
-        ];
-      });
+      streamContent = hasAssistantMessage
+        ? `${streamContent}\n\n流式生成中断：${errorMessage}`
+        : `流式生成失败：${errorMessage}`;
+      syncAssistant();
       setNotice(errorMessage);
     } finally {
       setIsAsking(false);

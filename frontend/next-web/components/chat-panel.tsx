@@ -1,23 +1,29 @@
 "use client";
 
-import { type FormEvent, useEffect, useMemo, useRef } from "react";
+import { type FormEvent, Fragment, useEffect, useMemo, useRef } from "react";
 import {
   Box,
   Brain,
+  CheckCircle2,
+  ChevronDown,
+  Clock3,
   Globe2,
   Info,
+  Loader2,
   Paperclip,
   Quote,
   SendHorizontal,
   Settings2,
   Sparkles,
   Square,
+  Route,
+  ShieldCheck,
   UploadCloud,
   Wrench,
   X,
   Zap,
 } from "lucide-react";
-import type { AnswerMode } from "@/lib/api";
+import type { AgentStep, AnswerMode, PhaseState, Plan, RouteStep } from "@/lib/api";
 import type { Message } from "@/lib/types";
 import { samplePrompts } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -60,13 +66,13 @@ export function ChatPanel({
     {
       mode: "fast" as const,
       label: "快速模式",
-      model: "GLM-4V-Flash",
+      model: "doubao-seed-2-0-lite-260428",
       icon: Zap,
     },
     {
       mode: "thinking" as const,
       label: "思考模式",
-      model: "GLM-4.1V-Thinking-Flash",
+      model: "doubao-seed-2-0-lite-260428",
       icon: Brain,
     },
   ];
@@ -147,7 +153,11 @@ export function ChatPanel({
               <ScrollArea className="min-h-0 flex-1 py-7">
                 <div className="mx-auto flex max-w-[900px] flex-col gap-4">
                   {visibleMessages.map((message) => (
-                    <MessageBubble key={message.id} message={message} />
+                    <MessageBubble
+                      key={message.id}
+                      message={message}
+                      isAsking={isAsking}
+                    />
                   ))}
                   {isAsking ? (
                     <div className="flex justify-center">
@@ -187,23 +197,41 @@ export function ChatPanel({
   );
 }
 
-function MessageBubble({ message }: { message: Message }) {
+function MessageBubble({ message, isAsking }: { message: Message; isAsking: boolean }) {
   const isUser = message.role === "user";
 
   if (isUser) {
     return (
-      <article className="ml-auto max-w-[70%] rounded-[12px] bg-[#eaf2ff] px-5 py-3.5 text-base font-medium leading-7 text-[#151922]">
+      <article className="ml-auto max-w-[70%] animate-in fade-in slide-in-from-bottom-2 duration-300 rounded-[12px] bg-[#eaf2ff] px-5 py-3.5 text-base font-medium leading-7 text-[#151922]">
         <p className="whitespace-pre-wrap">{message.content}</p>
       </article>
     );
   }
 
+  const phases = message.phases ?? [];
+  const phaseOf = (layer: string) => phases.find((phase) => phase.layer === layer)?.status;
+  const plannerRunning = phaseOf("planner") === "running";
+  const agentRunning = phaseOf("agent") === "running";
+  const answerRunning = phaseOf("answer") === "running";
+  const agentSteps = message.agentSteps ?? [];
+  const route = message.route ?? [];
+  const hasLiveArea = phases.length > 0 || Boolean(message.plan) || agentSteps.length > 0;
+  const generating = isAsking && !message.content && !message.model;
+
   return (
-    <article className="relative flex gap-3">
+    <article className="relative flex animate-in fade-in slide-in-from-bottom-2 duration-300 gap-3">
       <div className="pt-3 text-[#7b4cff]">
-        <Sparkles className="size-5" />
+        <Sparkles className={cn("size-5", (generating || answerRunning) && "animate-pulse")} />
       </div>
       <div className="min-w-0 flex-1 space-y-3">
+        {hasLiveArea ? (
+          <div className="space-y-2.5">
+            {phases.length > 0 ? <LayerTimeline phases={phases} /> : null}
+            <PlanPanel plan={message.plan} running={plannerRunning} />
+            <AgentSteps steps={agentSteps} running={agentRunning} />
+          </div>
+        ) : null}
+
         {message.sources?.length ? (
           <div className="flex items-center justify-between rounded-[12px] bg-[#f3f5f8] px-4 py-3 text-base font-semibold text-[#242933]">
             <span className="flex min-w-0 items-center gap-2.5">
@@ -218,11 +246,21 @@ function MessageBubble({ message }: { message: Message }) {
 
         <div className="rounded-[12px] border border-[#dfe5ef] bg-white px-5 py-4 text-[17px] font-medium leading-8 text-[#1f2937] shadow-[0_8px_24px_rgba(16,24,40,0.06)]">
           <div className="mb-3 flex items-center gap-2.5 text-[18px] font-bold text-[#111827]">
-            <Brain className="size-5" />
+            {generating || answerRunning ? (
+              <Loader2 className="size-5 animate-spin text-[#2b64ff]" />
+            ) : (
+              <Brain className="size-5 text-[#7b4cff]" />
+            )}
             {message.model ? "助手回答" : "生成中"}
-            {!message.model ? <span>....</span> : null}
+            {generating && !message.content ? (
+              <span className="text-[15px] font-medium text-[#2b64ff]">正在思考…</span>
+            ) : null}
           </div>
-          <p className="whitespace-pre-wrap tracking-normal">{message.content}</p>
+          {message.content ? (
+            <p className="whitespace-pre-wrap tracking-normal">{message.content}</p>
+          ) : generating ? (
+            <GeneratingDots />
+          ) : null}
           {message.model ? (
             <div className="mt-4 flex flex-wrap items-center gap-2 text-sm font-semibold text-[#7a8393]">
               <span className="rounded-[6px] bg-white px-2.5 py-1">
@@ -232,8 +270,224 @@ function MessageBubble({ message }: { message: Message }) {
             </div>
           ) : null}
         </div>
+
+        {route.length > 0 || message.traceId ? (
+          <ObservabilityPanel route={route} traceId={message.traceId} />
+        ) : null}
       </div>
     </article>
+  );
+}
+
+const LAYER_ORDER = [
+  { layer: "guardrails", name: "安全校验", Icon: ShieldCheck },
+  { layer: "memory", name: "会话记忆", Icon: Clock3 },
+  { layer: "planner", name: "规划层", Icon: Route },
+  { layer: "agent", name: "执行层", Icon: Brain },
+  { layer: "answer", name: "命令层", Icon: Sparkles },
+] as const;
+
+function LayerTimeline({ phases }: { phases: PhaseState[] }) {
+  const byLayer = new Map(phases.map((phase) => [phase.layer, phase]));
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {LAYER_ORDER.map((def, index) => {
+        const status = byLayer.get(def.layer)?.status;
+        const Icon = def.Icon;
+        return (
+          <Fragment key={def.layer}>
+            <div
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold animate-in fade-in slide-in-from-bottom-1 duration-300",
+                status === "done" && "border-emerald-200 bg-emerald-50 text-emerald-700",
+                status === "running" &&
+                  "border-[#cfe0ff] bg-[#eef4ff] text-[#2b64ff] shadow-[0_0_0_3px_rgba(47,102,255,0.10)]",
+                !status && "border-[#e4e8f0] bg-[#f7f8fb] text-[#aab2c0]",
+              )}
+            >
+              {status === "running" ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : status === "done" ? (
+                <CheckCircle2 className="size-3.5" />
+              ) : (
+                <Icon className="size-3.5" />
+              )}
+              {def.name}
+            </div>
+            {index < LAYER_ORDER.length - 1 ? (
+              <span className="text-xs text-[#cbd5e7]">→</span>
+            ) : null}
+          </Fragment>
+        );
+      })}
+    </div>
+  );
+}
+
+function PlanPanel({ plan, running }: { plan?: Plan; running: boolean }) {
+  if (!plan) return null;
+  return (
+    <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 rounded-[12px] border border-[#e4e8f0] bg-[#fbfcfe] px-4 py-3">
+      <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-[#1f2937]">
+        <Route className="size-4 text-[#2f66ff]" />
+        规划层 · 路线规划
+        <span className="rounded-[6px] bg-[#eef2ff] px-2 py-0.5 text-[11px] text-[#475467]">
+          {plan.strategy === "llm" ? "LLM 规划" : "规则规划"}
+        </span>
+        {running ? <Loader2 className="size-3.5 animate-spin text-[#2b64ff]" /> : null}
+      </div>
+      {plan.rationale ? (
+        <p className="mb-2 text-xs leading-5 text-[#475467]">{plan.rationale}</p>
+      ) : null}
+      <ol className="space-y-1.5">
+        {plan.steps.map((step, index) => (
+          <li
+            key={`${step.name}-${index}`}
+            className="flex animate-in fade-in slide-in-from-left-2 duration-300 items-center gap-2 text-xs text-[#344054]"
+            style={{ animationDelay: `${index * 80}ms` }}
+          >
+            <span className="grid size-4 shrink-0 place-items-center rounded-full bg-[#2f66ff] text-[9px] font-bold text-white">
+              {index + 1}
+            </span>
+            <span className="font-medium">{step.name}</span>
+            <span className="rounded-[5px] bg-[#f2f4f7] px-1.5 py-0.5 text-[10px] text-[#667085]">
+              {step.step_type}
+            </span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+function ObservabilityPanel({
+  route,
+  traceId,
+}: {
+  route: RouteStep[];
+  traceId?: string | null;
+}) {
+  if (route.length === 0 && !traceId) return null;
+  return (
+    <div className="animate-in fade-in duration-300 rounded-[12px] border border-[#dfe5ef] bg-white px-4 py-3 shadow-[0_4px_16px_rgba(16,24,40,0.04)]">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-semibold text-[#344054]">
+        <span className="inline-flex items-center gap-2">
+          <Clock3 className="size-4 text-[#2f66ff]" />
+          可观测性 · 执行步骤
+        </span>
+        {traceId ? (
+          <span className="max-w-full truncate rounded-[6px] bg-[#f3f6fb] px-2.5 py-1 text-xs text-[#667085]">
+            trace {traceId.slice(0, 8)}
+          </span>
+        ) : null}
+      </div>
+      {route.length > 0 ? <RouteTimeline route={route} /> : null}
+    </div>
+  );
+}
+
+function AgentSteps({ steps, running }: { steps: AgentStep[]; running: boolean }) {
+  if (steps.length === 0 && !running) return null;
+  return (
+    <details
+      className="group animate-in fade-in slide-in-from-bottom-2 duration-300 rounded-[10px] border border-[#e8edf5] bg-[#fbfcfe]"
+      open
+    >
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-sm font-semibold text-[#1f2937]">
+        <span className="inline-flex items-center gap-2">
+          <Brain className="size-4 text-[#7b4cff]" />
+          执行层 · 思考过程
+          {running ? (
+            <Loader2 className="size-3.5 animate-spin text-[#2b64ff]" />
+          ) : null}
+          <span className="rounded-[6px] bg-[#eef2ff] px-2 py-0.5 text-xs text-[#475467]">
+            {steps.length} 轮
+          </span>
+        </span>
+        <ChevronDown className="size-4 text-[#98a2b3] transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="space-y-2 border-t border-[#e8edf5] px-3 py-3">
+        {steps.map((step, index) => (
+          <div
+            key={`${step.action ?? "final"}-${index}`}
+            className="animate-in fade-in slide-in-from-bottom-2 duration-300 rounded-[8px] bg-white p-3 text-sm leading-6 text-[#344054]"
+          >
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <span className="font-semibold text-[#101828]">第 {index + 1} 轮</span>
+              {step.action ? (
+                <span className="rounded-[6px] bg-[#ecfdf3] px-2 py-0.5 text-xs font-semibold text-[#067647]">
+                  {step.action}
+                </span>
+              ) : (
+                <span className="rounded-[6px] bg-[#f2f4f7] px-2 py-0.5 text-xs font-semibold text-[#667085]">
+                  final
+                </span>
+              )}
+            </div>
+            {step.thought ? <p className="whitespace-pre-wrap">{step.thought}</p> : null}
+            {step.action_input ? (
+              <pre className="mt-2 max-h-28 overflow-auto rounded-[6px] bg-[#f8fafc] p-2 text-xs leading-5 text-[#475467]">
+                {JSON.stringify(step.action_input, null, 2)}
+              </pre>
+            ) : null}
+            {step.observation ? (
+              <p className="mt-2 line-clamp-4 rounded-[6px] bg-[#f8fafc] p-2 text-xs leading-5 text-[#475467]">
+                {step.observation}
+              </p>
+            ) : null}
+          </div>
+        ))}
+        {running && steps.length === 0 ? (
+          <div className="flex items-center gap-2 px-1 text-xs text-[#667085]">
+            <Loader2 className="size-3.5 animate-spin text-[#2b64ff]" />
+            智能体正在思考…
+          </div>
+        ) : null}
+      </div>
+    </details>
+  );
+}
+
+function RouteTimeline({ route }: { route: RouteStep[] }) {
+  return (
+    <ol className="mt-3 space-y-2">
+      {route.map((step, index) => (
+        <li
+          key={`${step.step}-${index}`}
+          className="grid animate-in fade-in slide-in-from-left-2 duration-300 grid-cols-[20px_minmax(0,1fr)_auto] items-center gap-2 text-sm"
+        >
+          <CheckCircle2
+            className={cn(
+              "size-4",
+              step.status === "ok" ? "text-emerald-500" : "text-rose-500",
+            )}
+          />
+          <span className="truncate font-medium text-[#344054]">{step.step}</span>
+          <span className="text-xs font-semibold text-[#98a2b3]">
+            {typeof step.duration_ms === "number" ? `${step.duration_ms} ms` : "-"}
+          </span>
+          {step.error ? (
+            <p className="col-start-2 col-end-4 rounded-[6px] bg-[#fff1f3] px-2 py-1 text-xs text-[#b42318]">
+              {step.error}
+            </p>
+          ) : null}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function GeneratingDots() {
+  return (
+    <div className="flex items-center gap-1.5 py-1">
+      {[0, 1, 2].map((index) => (
+        <span
+          key={index}
+          className="size-2 animate-bounce rounded-full bg-[#2b64ff]"
+          style={{ animationDelay: `${index * 0.15}s` }}
+        />
+      ))}
+    </div>
   );
 }
 

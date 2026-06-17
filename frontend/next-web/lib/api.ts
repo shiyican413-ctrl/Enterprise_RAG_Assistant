@@ -11,12 +11,46 @@ export type Source = {
   metadata?: Record<string, string>;
 };
 
+export type AgentStep = {
+  thought?: string;
+  action?: string | null;
+  action_input?: Record<string, unknown> | null;
+  observation?: string | null;
+};
+
+export type RouteStep = {
+  step: string;
+  status: string;
+  duration_ms?: number | null;
+  error?: string | null;
+};
+
+export type PlanStep = {
+  name: string;
+  step_type: string;
+};
+
+export type Plan = {
+  strategy: string;
+  rationale: string;
+  steps: PlanStep[];
+};
+
+export type PhaseState = {
+  layer: string;
+  label: string;
+  status: "running" | "done";
+};
+
 export type AskResponse = {
   conversation_id: string;
+  trace_id?: string | null;
   answer: string;
   sources: Source[];
   answer_mode: AnswerMode;
   model?: string | null;
+  agent_steps?: AgentStep[];
+  route?: RouteStep[];
 };
 
 export type AnswerMode = "fast" | "thinking";
@@ -58,8 +92,28 @@ export type RebuildKnowledgeResult = {
 
 export type StreamEvent =
   | {
+      type: "phase";
+      layer: string;
+      label: string;
+      status: "start" | "done";
+    }
+  | {
+      type: "plan";
+      strategy: string;
+      rationale: string;
+      steps: PlanStep[];
+    }
+  | {
+      type: "route_step";
+      step: RouteStep | null;
+    }
+  | {
       type: "answer_delta";
       content: string;
+    }
+  | {
+      type: "agent_step";
+      content: AgentStep;
     }
   | {
       type: "sources";
@@ -68,8 +122,10 @@ export type StreamEvent =
   | {
       type: "done";
       conversation_id: string;
+      trace_id?: string | null;
       answer_mode: AnswerMode;
       model?: string | null;
+      route?: RouteStep[];
     };
 
 export async function askQuestion(
