@@ -245,18 +245,42 @@ export default function Home() {
         </div>
 
         <main className="flex min-h-0 min-w-0 flex-col">
-          <header className="flex h-[72px] shrink-0 items-center justify-between border-b border-[#e8ebf1] bg-[#f7f8fb] px-4 sm:px-7">
+          <header className="flex h-14 shrink-0 items-center justify-between border-b border-[#e8ebf1] bg-white px-4 sm:px-7">
             <div className="flex items-center gap-3 lg:hidden">
               <div className="relative h-6 w-8">
                 <span className="absolute left-0 top-0 h-2 w-8 skew-x-[-24deg] bg-[#111317]" />
                 <span className="absolute bottom-0 left-0 h-2 w-8 skew-x-[-24deg] bg-[#111317]" />
               </div>
-              <span className="text-xl font-bold">企业 RAG</span>
+              <span className="text-lg font-bold">企业 RAG</span>
             </div>
-            <div className="hidden text-[18px] font-semibold text-[#2b3038] lg:block">
-              企业知识库智能问答平台
+            <div className="hidden items-center gap-3 text-[16px] font-semibold text-[#2b3038] lg:flex">
+              <span>企业知识库智能问答平台</span>
+              <span className="h-4 w-px bg-[#d8dee9]" />
+              <span className="text-[#111317]">智能问答</span>
             </div>
             <div className="flex items-center gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-9 rounded-[8px] border-[#e3e7ef] bg-white px-3 text-[14px] font-semibold text-[#111317] hover:bg-[#f6f8fc]"
+                onClick={() => {
+                  setConversationId(undefined);
+                  setMessages([
+                    {
+                      id: "welcome",
+                      role: "assistant",
+                      content:
+                        "企业知识库已就绪。你可以上传制度、产品手册或常见问题文档，然后向我提问；回答会同时返回引用来源，方便核验依据。",
+                    },
+                  ]);
+                  setLatestSources([]);
+                  setQuestion("");
+                }}
+              >
+                <Plus className="size-4 text-[#a5acb8]" />
+                <span className="hidden sm:inline">新建对话</span>
+                <span className="sm:hidden">新建</span>
+              </Button>
               <div className="hidden h-10 items-center gap-2 rounded-[10px] px-3 text-sm font-semibold text-[#667085] sm:flex">
                 <CircleCheck
                   className={isHealthy ? "size-4 text-emerald-500" : "size-4 text-[#a5acb8]"}
@@ -265,7 +289,7 @@ export default function Home() {
               </div>
               <button
                 type="button"
-                className="grid size-10 place-items-center rounded-full text-[#111317] transition-colors hover:bg-white"
+                className="grid size-10 place-items-center rounded-full text-[#111317] transition-colors hover:bg-[#f6f8fc]"
                 aria-label="用户中心"
               >
                 <UserRound className="size-5 fill-current" strokeWidth={2.2} />
@@ -274,36 +298,7 @@ export default function Home() {
           </header>
 
           <div className="min-h-0 flex-1 p-3 sm:p-4">
-            <section className="flex min-h-[calc(100vh-96px)] flex-col overflow-hidden rounded-[16px] border border-[#e4e8f0] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.02)] lg:h-full lg:min-h-0">
-              <div className="flex min-h-[76px] shrink-0 flex-col gap-3 border-b border-[#e8ebf1] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7">
-                <h1 className="text-[24px] font-bold leading-none tracking-normal text-[#06080c]">
-                  智能问答
-                </h1>
-                <div className="flex flex-wrap items-center gap-3">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-10 rounded-[8px] border-[#e3e7ef] bg-white px-4 text-[15px] font-semibold text-[#111317] hover:bg-[#f6f8fc]"
-                    onClick={() => {
-                      setConversationId(undefined);
-                      setMessages([
-                        {
-                          id: "welcome",
-                          role: "assistant",
-                          content:
-                            "企业知识库已就绪。你可以上传制度、产品手册或常见问题文档，然后向我提问；回答会同时返回引用来源，方便核验依据。",
-                        },
-                      ]);
-                      setLatestSources([]);
-                      setQuestion("");
-                    }}
-                  >
-                    <Plus className="size-5 text-[#a5acb8]" />
-                    新建对话
-                  </Button>
-                </div>
-              </div>
-
+            <section className="flex min-h-[calc(100vh-80px)] flex-col overflow-hidden rounded-[16px] border border-[#e4e8f0] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.02)] sm:min-h-[calc(100vh-88px)] lg:h-full lg:min-h-0">
               <div className="grid min-h-0 flex-1 grid-cols-1 lg:min-h-0 xl:grid-cols-[minmax(0,1fr)_324px]">
                 <ChatPanel
                   messages={messages}
