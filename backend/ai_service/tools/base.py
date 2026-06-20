@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-from backend.ai_service.services.vector_store_service import SearchResult
+from backend.ai_service.retrieval.vector_store import SearchResult
 
 
 @dataclass(frozen=True)

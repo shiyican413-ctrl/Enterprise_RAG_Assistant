@@ -46,16 +46,22 @@ export default function KnowledgePage() {
                 availableExtensions={knowledge.availableExtensions}
                 filteredCount={knowledge.filteredDocuments.length}
                 totalCount={knowledge.documents.length}
+                selectedCount={knowledge.selectedIds.size}
                 onQueryChange={knowledge.setQuery}
                 onExtensionChange={knowledge.setExtension}
+                onBatchDelete={() => knowledge.setShowBatchDeleteConfirm(true)}
+                onClearSelection={knowledge.clearSelection}
               />
               <DocumentTable
                 documents={knowledge.filteredDocuments}
                 isLoading={knowledge.isLoading}
                 totalDocuments={knowledge.documents.length}
+                selectedIds={knowledge.selectedIds}
                 onSelect={knowledge.setSelectedDocument}
                 onCopyId={knowledge.copyDocumentId}
                 onDelete={knowledge.setPendingDelete}
+                onToggleSelect={knowledge.toggleSelect}
+                onToggleSelectAll={knowledge.toggleSelectAll}
               />
             </section>
           </div>
@@ -78,6 +84,18 @@ export default function KnowledgePage() {
           tone="danger"
           onCancel={() => knowledge.setPendingDelete(null)}
           onConfirm={knowledge.handleDelete}
+        />
+      ) : null}
+
+      {knowledge.showBatchDeleteConfirm ? (
+        <ConfirmDialog
+          title="批量删除文档索引"
+          description={`将删除已选的 ${knowledge.selectedIds.size} 个文档及其所有片段索引。原始上传文件不会被删除。`}
+          confirmLabel={`确认删除 ${knowledge.selectedIds.size} 个文档`}
+          busy={knowledge.isDeleting}
+          tone="danger"
+          onCancel={() => knowledge.setShowBatchDeleteConfirm(false)}
+          onConfirm={knowledge.handleBatchDelete}
         />
       ) : null}
 

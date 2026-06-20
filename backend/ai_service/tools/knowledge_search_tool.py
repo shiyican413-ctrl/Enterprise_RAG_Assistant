@@ -1,12 +1,12 @@
-from backend.ai_service.services.vector_store_service import SearchResult
+from backend.ai_service.retrieval.vector_store import SearchResult
 from backend.ai_service.tools.base import ToolContext, ToolResult
 
 
 class KnowledgeSearchTool:
     name = "knowledge_search"
     description = (
-        "Search the enterprise knowledge base. Input JSON: "
-        '{"query":"user question or focused search query"}.'
+        "检索企业知识库。输入 JSON："
+        '{"query":"用户问题或聚焦后的检索词"}。'
     )
 
     def __init__(self, vector_store) -> None:
@@ -19,7 +19,7 @@ class KnowledgeSearchTool:
 
         if not results:
             return ToolResult(
-                content="No relevant knowledge base chunks were found.",
+                content="未检索到相关知识库片段。",
                 sources=[],
                 raw_results=[],
             )
@@ -27,7 +27,7 @@ class KnowledgeSearchTool:
         evidence = "\n".join(
             (
                 f"[{index}] {result.chunk.document_name} "
-                f"chunk {result.chunk.chunk_index}: {result.chunk.content[:500]}"
+                f"片段 {result.chunk.chunk_index}: {result.chunk.content[:500]}"
             )
             for index, result in enumerate(results, start=1)
         )

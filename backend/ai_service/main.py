@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.ai_service.api.routes import router
-from backend.ai_service.config import APP_NAME, APP_VERSION
+from backend.ai_service.api.router import router
+from backend.ai_service.core.config import APP_NAME, APP_VERSION
 
 
 app = FastAPI(title=APP_NAME, version=APP_VERSION)

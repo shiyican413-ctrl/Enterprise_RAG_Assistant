@@ -1,5 +1,6 @@
-import { Filter, Search } from "lucide-react";
+import { Filter, Search, Trash2, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 type DocumentToolbarProps = {
   query: string;
@@ -7,8 +8,11 @@ type DocumentToolbarProps = {
   availableExtensions: string[];
   filteredCount: number;
   totalCount: number;
+  selectedCount: number;
   onQueryChange: (query: string) => void;
   onExtensionChange: (extension: string) => void;
+  onBatchDelete: () => void;
+  onClearSelection: () => void;
 };
 
 export function DocumentToolbar({
@@ -17,8 +21,11 @@ export function DocumentToolbar({
   availableExtensions,
   filteredCount,
   totalCount,
+  selectedCount,
   onQueryChange,
   onExtensionChange,
+  onBatchDelete,
+  onClearSelection,
 }: DocumentToolbarProps) {
   return (
     <div className="flex flex-col gap-3 border-b border-[#e8ebf1] px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
@@ -33,6 +40,31 @@ export function DocumentToolbar({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
+        {selectedCount > 0 && (
+          <>
+            <Badge variant="outline" className="h-10 gap-1.5 rounded-[8px] border-[#2457e8] bg-[#f0f5ff] px-3 text-sm font-semibold text-[#2457e8]">
+              已选 {selectedCount} 项
+              <button
+                type="button"
+                className="grid size-4 place-items-center rounded-full transition-colors hover:bg-[#2457e8]/10"
+                onClick={onClearSelection}
+                aria-label="取消选择"
+              >
+                <X className="size-3" />
+              </button>
+            </Badge>
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              className="h-10 gap-1.5 rounded-[8px]"
+              onClick={onBatchDelete}
+            >
+              <Trash2 className="size-4" />
+              批量删除
+            </Button>
+          </>
+        )}
         <div className="flex h-10 items-center gap-2 rounded-[8px] border border-[#d9dee8] bg-white px-3">
           <Filter className="size-4 text-[#667085]" />
           <select

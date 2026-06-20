@@ -1,10 +1,9 @@
 from collections.abc import AsyncIterator
 
-from backend.ai_service.config import TOP_K
-from backend.ai_service.services.chat_model_service import AnswerMode, DoubaoChatClient
-from backend.ai_service.services.history_service import HistoryService
-from backend.ai_service.services.orchestrator_service import OrchestratorService
-from backend.ai_service.services.vector_store_service import PostgresVectorStore
+from backend.ai_service.core.config import TOP_K
+from backend.ai_service.llm.chat_client import AnswerMode, DoubaoChatClient
+from backend.ai_service.storage.history import HistoryService
+from backend.ai_service.application.orchestrator import OrchestratorService
 
 
 class RAGService:
@@ -12,7 +11,7 @@ class RAGService:
 
     def __init__(
         self,
-        vector_store: PostgresVectorStore | None = None,
+        vector_store=None,
         history_service: HistoryService | None = None,
         chat_client: DoubaoChatClient | None = None,
         orchestrator: OrchestratorService | None = None,

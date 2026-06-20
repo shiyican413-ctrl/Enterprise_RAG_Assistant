@@ -3,8 +3,8 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Literal
 
-from backend.ai_service.services.chat_model_service import AnswerMode, DoubaoChatClient
-from backend.ai_service.services.vector_store_service import SearchResult
+from backend.ai_service.llm.chat_client import AnswerMode, DoubaoChatClient
+from backend.ai_service.retrieval.vector_store import SearchResult
 
 
 AgentDecisionType = Literal["action", "final"]
@@ -58,9 +58,12 @@ class ReActAgent:
         self,
         question: str,
         answer_mode: AnswerMode,
+        evidence: Sequence[SearchResult] | None = None,
     ) -> AgentRun:
         final_run: AgentRun | None = None
-        for item in self.run_stream(question=question, answer_mode=answer_mode):
+        for item in self.run_stream(
+            question=question, answer_mode=answer_mode, evidence=evidence,
+        ):
             if item["type"] == "final":
                 final_run = item["run"]
         return final_run or AgentRun(
@@ -75,6 +78,7 @@ class ReActAgent:
         self,
         question: str,
         answer_mode: AnswerMode,
+        evidence: Sequence[SearchResult] | None = None,
     ):
         """Yield each reasoning step live, then a final run.
 
@@ -83,6 +87,10 @@ class ReActAgent:
         with ``{"type": "final", "run": AgentRun}``. When the model is disabled
         only the final (empty) run is yielded. ``run`` drains this generator so
         the two paths share one implementation.
+
+        When *evidence* is provided (Route B), pre-fetched knowledge base
+        results are injected into the prompt so the agent can answer grounded
+        in retrieved evidence.
         """
         if not self.chat_client.enabled:
             yield {
@@ -104,7 +112,7 @@ class ReActAgent:
 
         for _ in range(self.max_steps):
             response = self.chat_client.complete(
-                messages=self._build_messages(question, answer_mode, steps),
+                messages=self._build_messages(question, answer_mode, steps, evidence=evidence),
                 mode=answer_mode,
                 temperature=0.1 if answer_mode == "thinking" else 0.2,
             )
@@ -154,7 +162,7 @@ class ReActAgent:
             yield {"type": "thought", "step": step}
 
         response = self.chat_client.complete(
-            messages=self._build_messages(question, answer_mode, steps, force_final=True),
+            messages=self._build_messages(question, answer_mode, steps, force_final=True, evidence=evidence),
             mode=answer_mode,
             temperature=0.1 if answer_mode == "thinking" else 0.2,
         )
@@ -181,21 +189,44 @@ class ReActAgent:
         answer_mode: AnswerMode,
         steps: Sequence[AgentStep],
         force_final: bool = False,
+        evidence: Sequence[SearchResult] | None = None,
     ) -> list[dict[str, str]]:
         tool_text = "\n".join(
             f"- {tool.name}: {tool.description}" for tool in self.tools.values()
         )
         transcript = _format_steps(steps)
+        language_instruction = _language_instruction(question)
         mode_instruction = (
-            "Give a concise answer in 3 to 6 points."
+            "请用 3 到 6 点简洁回答。"
             if answer_mode == "fast"
-            else "Analyze carefully, then provide only the final answer to the user."
+            else "请仔细分析证据，然后只输出给用户看的最终回答。"
         )
         next_instruction = (
             "You must now return a final answer."
             if force_final
             else "Choose one tool action if more evidence is needed; otherwise answer."
         )
+
+        # Evidence routing: Route B (pre-fetched knowledge) vs Route A (no KB).
+        if evidence:
+            evidence_block = (
+                "已检索到的知识库证据（优先作为回答依据）：\n"
+                f"{_format_evidence(evidence)}\n\n"
+                "请基于这些证据回答，并用 [1]、[2] 等格式标注关键依据。"
+                "如果证据不完整，可以继续使用工具。"
+            )
+            system_suffix = (
+                " When retrieved evidence is provided, answer strictly from it; "
+                "do not invent facts outside the evidence and your tool observations."
+            )
+        else:
+            evidence_block = (
+                '本轮未提供可用的知识库证据（可能未检索，或检索后没有命中）。'
+                '最终答案必须以这个精确句子开头：'
+                '"未在知识库中检索到相关资料。" '
+                "然后再基于通用知识回答。不要调用 knowledge_search。"
+            )
+            system_suffix = ""
 
         return [
             {
@@ -204,11 +235,14 @@ class ReActAgent:
                     "You are an enterprise RAG ReAct agent. Use tools when the answer "
                     "depends on private knowledge. Do not invent facts outside tool "
                     "observations. Respond with exactly one JSON object and no markdown.\n\n"
+                    f"Answer language: {language_instruction}\n"
+                    "Keep JSON keys in English, but write thought and answer values in the answer language.\n\n"
                     "Action JSON shape:\n"
                     '{"type":"action","thought":"...","action":"tool_name",'
                     '"action_input":{"query":"..."}}\n\n'
                     "Final JSON shape:\n"
-                    '{"type":"final","thought":"...","answer":"..."}\n\n'
+                    '{"type":"final","thought":"...","answer":"..."}\n'
+                    f"{system_suffix}\n\n"
                     f"Available tools:\n{tool_text}"
                 ),
             },
@@ -217,12 +251,33 @@ class ReActAgent:
                 "content": (
                     f"Question: {question}\n"
                     f"Answer mode: {answer_mode}\n"
-                    f"Answer requirement: {mode_instruction}\n"
+                    f"Answer language requirement: {language_instruction}\n"
+                    f"Answer requirement: {mode_instruction}\n\n"
+                    f"{evidence_block}\n\n"
                     f"Previous steps:\n{transcript or '(none)'}\n\n"
                     f"{next_instruction}"
                 ),
             },
         ]
+
+
+def _format_evidence(results: Sequence[SearchResult]) -> str:
+    """Format pre-fetched search results into a numbered evidence block."""
+    return "\n\n".join(
+        f"[{i}] 来源：{r.chunk.document_name}，片段：{r.chunk.chunk_index}\n"
+        f"{r.chunk.content[:1200]}"
+        for i, r in enumerate(results, start=1)
+    )
+
+
+def _language_instruction(question: str) -> str:
+    if _contains_cjk(question):
+        return "请使用简体中文回答，除非用户明确要求其他语言。"
+    return "Match the user's language unless the user explicitly asks for another language."
+
+
+def _contains_cjk(text: str) -> bool:
+    return any("\u4e00" <= char <= "\u9fff" for char in text)
 
 
 def _parse_decision(content: str) -> dict:

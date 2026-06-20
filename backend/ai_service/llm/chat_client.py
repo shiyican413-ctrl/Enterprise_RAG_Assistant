@@ -5,7 +5,7 @@ from typing import Literal
 
 import httpx
 
-from backend.ai_service.config import (
+from backend.ai_service.core.config import (
     ARK_API_KEY,
     ARK_CHAT_URL,
     CHAT_TIMEOUT_SECONDS,

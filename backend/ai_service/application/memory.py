@@ -1,4 +1,4 @@
-from backend.ai_service.services.history_service import HistoryService, PostgresHistoryService
+from backend.ai_service.storage.history import HistoryService, PostgresHistoryService
 
 
 class MemoryService:

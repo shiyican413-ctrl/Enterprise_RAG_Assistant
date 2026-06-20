@@ -1,19 +1,53 @@
+import asyncio
+import queue as _queue_mod
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import Any
 
-from backend.ai_service.services.agent_service import (
+from backend.ai_service.agent.react_agent import (
     AgentRun,
     AgentStep,
     AgentTool,
     ReActAgent,
 )
-from backend.ai_service.services.chat_model_service import AnswerMode, DoubaoChatClient
-from backend.ai_service.services.planner_service import Plan
-from backend.ai_service.services.trace_service import TraceContext, TraceService, traced_step
-from backend.ai_service.services.vector_store_service import SearchResult
+from backend.ai_service.llm.chat_client import AnswerMode, DoubaoChatClient
+from backend.ai_service.agent.planner import Plan
+from backend.ai_service.observability.tracing import TraceContext, TraceService, traced_step
+from backend.ai_service.retrieval.vector_store import SearchResult
 from backend.ai_service.tools.base import ToolContext
 from backend.ai_service.tools.registry import ToolRegistry
+
+# ---------------------------------------------------------------------------
+# Helper: run a sync generator in a thread pool so it never blocks the
+# asyncio event loop.  Yields items as they become available.
+# ---------------------------------------------------------------------------
+_SENTINEL = object()
+
+
+async def _async_iter_sync(sync_iter):
+    """Wrap a synchronous iterator so it runs in a background thread."""
+    q: _queue_mod.Queue[object] = _queue_mod.Queue()
+
+    def _producer():
+        try:
+            for item in sync_iter:
+                q.put(item)
+        except Exception as exc:
+            q.put(exc)
+        finally:
+            q.put(_SENTINEL)
+
+    loop = asyncio.get_running_loop()
+    loop.run_in_executor(None, _producer)
+
+    _get = q.get  # bound method — slightly faster in tight loop
+    while True:
+        item = await asyncio.to_thread(_get)
+        if item is _SENTINEL:
+            break
+        if isinstance(item, Exception):
+            raise item
+        yield item
 
 
 @dataclass
@@ -45,39 +79,47 @@ class ExecutorService:
         top_k: int,
     ) -> ExecutionResult:
         tool_context = ToolContext(trace_id=trace.trace_id, top_k=top_k)
-        agent_run = AgentRun(answer="", sources=[], model=None, steps=[], raw_results=[])
+        results: list[SearchResult] = []
+        sources: list[dict] = []
 
-        if _has_step(plan, "agent_answer"):
-            agent_run = self._run_agent(
-                question=plan.question,
-                answer_mode=plan.answer_mode,
-                tool_context=tool_context,
-                trace=trace,
-            )
-
-        results = agent_run.raw_results
-        sources = agent_run.sources
-        answer = agent_run.answer
-        model = agent_run.model
-
-        if not sources and _has_step(plan, "knowledge_search"):
+        # Phase 1: run knowledge_search steps in order (Route B).
+        for step in plan.steps:
+            if step.step_type != "knowledge_search":
+                continue
+            query = str(step.input.get("query") or plan.question)
             with traced_step(self.trace_service, trace, "tool.knowledge_search"):
                 search_result = self.tool_registry.run(
                     "knowledge_search",
-                    {"query": plan.question},
+                    {"query": query},
                     tool_context,
                 )
             results = search_result.raw_results
             sources = search_result.sources
 
-        if not answer and _has_step(plan, "answer_generation"):
-            with traced_step(self.trace_service, trace, "model.answer"):
-                answer, model = self.build_answer(
-                    question=plan.question,
-                    results=results,
-                    answer_mode=plan.answer_mode,
-                )
+        # Phase 2: run agent_answer step — unified answer generation.
+        evidence = results or None
+        agent_run = AgentRun(answer="", sources=[], model=None, steps=[], raw_results=[])
+        for step in plan.steps:
+            if step.step_type != "agent_answer":
+                continue
+            agent_run = self._run_agent(
+                question=plan.question,
+                answer_mode=plan.answer_mode,
+                tool_context=tool_context,
+                trace=trace,
+                evidence=evidence,
+            )
+            break
 
+        answer = agent_run.answer
+        model = agent_run.model
+
+        # Merge agent-sourced results when executor didn't pre-fetch any.
+        if not sources:
+            sources = agent_run.sources
+            results = agent_run.raw_results
+
+        # Non-LLM fallback when agent produced nothing.
         if not answer:
             answer = build_template_answer(plan.question, results)
 
@@ -97,63 +139,86 @@ class ExecutorService:
         top_k: int,
     ) -> AsyncIterator[dict]:
         tool_context = ToolContext(trace_id=trace.trace_id, top_k=top_k)
-        agent_run = AgentRun(answer="", sources=[], model=None, steps=[], raw_results=[])
         results: list[SearchResult] = []
         sources: list[dict] = []
-        answer = ""
+        agent_run = AgentRun(answer="", sources=[], model=None, steps=[], raw_results=[])
         model: str | None = None
+        has_search_step = any(s.step_type == "knowledge_search" for s in plan.steps)
 
-        if _has_step(plan, "agent_answer"):
+        # Phase 1 (Route B only): knowledge retrieval — runs BEFORE agent.
+        if has_search_step:
             yield {
                 "type": "phase",
                 "layer": "agent",
                 "status": "start",
                 "label": "执行层 · 智能体推理与检索",
             }
-            try:
-                with traced_step(self.trace_service, trace, "agent.answer"):
-                    for item in self._run_agent_stream(
-                        question=plan.question,
-                        answer_mode=plan.answer_mode,
-                        tool_context=tool_context,
-                    ):
-                        if item.get("type") == "thought":
-                            yield {
-                                "type": "agent_step",
-                                "content": _agent_step_payload(item["step"]),
-                            }
-                        elif item.get("type") == "final":
-                            agent_run = item["run"]
-            except Exception:
-                agent_run = AgentRun(
-                    answer="", sources=[], model=None, steps=[], raw_results=[]
-                )
-            yield _route_step_event(self.trace_service, trace)
+            for step in plan.steps:
+                if step.step_type != "knowledge_search":
+                    continue
+                query = str(step.input.get("query") or plan.question)
+                with traced_step(self.trace_service, trace, "tool.knowledge_search"):
+                    search_result = await asyncio.to_thread(
+                        self.tool_registry.run,
+                        "knowledge_search",
+                        {"query": query},
+                        tool_context,
+                    )
+                if search_result.raw_results:
+                    results.extend(search_result.raw_results)
+                if search_result.sources:
+                    sources.extend(search_result.sources)
+                yield _route_step_event(self.trace_service, trace)
+
+        # Phase 2: agent reasoning — always runs (Route A and Route B).
+        # In Route A, open the agent phase here (no search phase preceded).
+        if not has_search_step:
             yield {
                 "type": "phase",
                 "layer": "agent",
-                "status": "done",
+                "status": "start",
                 "label": "执行层 · 智能体推理与检索",
             }
+        evidence = results or None
+        try:
+            with traced_step(self.trace_service, trace, "agent.answer"):
+                async for item in _async_iter_sync(
+                    self._run_agent_stream(
+                        question=plan.question,
+                        answer_mode=plan.answer_mode,
+                        tool_context=tool_context,
+                        evidence=evidence,
+                    )
+                ):
+                    if item.get("type") == "thought":
+                        yield {
+                            "type": "agent_step",
+                            "content": _agent_step_payload(item["step"]),
+                        }
+                    elif item.get("type") == "final":
+                        agent_run = item["run"]
+        except Exception:
+            agent_run = AgentRun(
+                answer="", sources=[], model=None, steps=[], raw_results=[]
+            )
+        yield _route_step_event(self.trace_service, trace)
+        yield {
+            "type": "phase",
+            "layer": "agent",
+            "status": "done",
+            "label": "执行层 · 智能体推理与检索",
+        }
 
-            results = agent_run.raw_results
+        # Merge agent-sourced results when executor didn't pre-fetch any.
+        if not sources:
             sources = agent_run.sources
-            answer = agent_run.answer
-            model = agent_run.model
+            results = agent_run.raw_results
 
-        if not sources and _has_step(plan, "knowledge_search"):
-            with traced_step(self.trace_service, trace, "tool.knowledge_search"):
-                search_result = self.tool_registry.run(
-                    "knowledge_search",
-                    {"query": plan.question},
-                    tool_context,
-                )
-            results = search_result.raw_results
-            sources = search_result.sources
-            yield _route_step_event(self.trace_service, trace)
+        answer = agent_run.answer
+        model = agent_run.model
 
-        # Command layer: produce and stream the final answer (single phase
-        # wrapping reuse-of-agent-answer, streamed generation, and fallback).
+        # Command layer: stream the final answer the agent produced.
+        # Unified: agent is now the ONLY answer producer.
         yield {
             "type": "phase",
             "layer": "answer",
@@ -166,35 +231,8 @@ class ExecutorService:
             for chunk in chunk_text(answer):
                 answer_parts.append(chunk)
                 yield {"type": "answer_delta", "content": chunk}
-        elif results and self.chat_client.enabled and _has_step(plan, "answer_generation"):
-            try:
-                with traced_step(self.trace_service, trace, "model.answer"):
-                    async for delta in self.chat_client.stream_complete(
-                        messages=build_messages(plan.question, results, plan.answer_mode),
-                        mode=plan.answer_mode,
-                        temperature=0.1 if plan.answer_mode == "thinking" else 0.2,
-                    ):
-                        model = delta.model
-                        answer_parts.append(delta.content)
-                        yield {"type": "answer_delta", "content": delta.content}
-                yield _route_step_event(self.trace_service, trace)
-            except Exception as exc:
-                fallback = build_template_answer(plan.question, results)
-                if answer_parts:
-                    fallback = (
-                        "\n\nModel streaming stopped early; partial output was kept. "
-                        f"Error: {exc}"
-                    )
-                else:
-                    fallback = (
-                        f"{fallback}\n\n"
-                        f"Model generation is unavailable, so a local fallback was used. Error: {exc}"
-                    )
-                for chunk in chunk_text(fallback):
-                    answer_parts.append(chunk)
-                    yield {"type": "answer_delta", "content": chunk}
-
-        if not answer_parts:
+        else:
+            # Non-LLM fallback when agent produced nothing.
             fallback = build_template_answer(plan.question, results)
             for chunk in chunk_text(fallback):
                 answer_parts.append(chunk)
@@ -221,6 +259,7 @@ class ExecutorService:
         answer_mode: AnswerMode,
         tool_context: ToolContext,
         trace: TraceContext,
+        evidence: list[SearchResult] | None = None,
     ) -> AgentRun:
         tools = [
             AgentTool(
@@ -237,7 +276,7 @@ class ExecutorService:
         agent = ReActAgent(chat_client=self.chat_client, tools=tools)
         try:
             with traced_step(self.trace_service, trace, "agent.answer"):
-                return agent.run(question=question, answer_mode=answer_mode)
+                return agent.run(question=question, answer_mode=answer_mode, evidence=evidence)
         except Exception:
             return AgentRun(answer="", sources=[], model=None, steps=[], raw_results=[])
 
@@ -247,6 +286,7 @@ class ExecutorService:
         question: str,
         answer_mode: AnswerMode,
         tool_context: ToolContext,
+        evidence: list[SearchResult] | None = None,
     ):
         tools = [
             AgentTool(
@@ -261,7 +301,7 @@ class ExecutorService:
             for tool in self.tool_registry.descriptions()
         ]
         agent = ReActAgent(chat_client=self.chat_client, tools=tools)
-        yield from agent.run_stream(question=question, answer_mode=answer_mode)
+        yield from agent.run_stream(question=question, answer_mode=answer_mode, evidence=evidence)
 
     def build_answer(
         self,
@@ -285,7 +325,7 @@ class ExecutorService:
                 fallback = build_template_answer(question, results)
                 return (
                     f"{fallback}\n\n"
-                    f"Model generation is unavailable, so a local fallback was used. Error: {exc}",
+                    f"模型生成暂不可用，已使用本地兜底回答。错误信息：{exc}",
                     None,
                 )
 
@@ -295,8 +335,8 @@ class ExecutorService:
 def build_template_answer(question: str, results: list[SearchResult]) -> str:
     if not results:
         return (
-            "I could not find enough relevant content in the current knowledge base. "
-            "Please upload enterprise policies, product manuals, or FAQ documents, then ask again."
+            "未在当前知识库中检索到足够相关的资料。"
+            "请先上传企业制度、产品手册或 FAQ 等文档后再提问。"
         )
 
     evidence = "\n".join(
@@ -304,9 +344,9 @@ def build_template_answer(question: str, results: list[SearchResult]) -> str:
         for index, result in enumerate(results[:3], start=1)
     )
     return (
-        f"Based on the most relevant knowledge base content, here is what I found for "
-        f"'{question}':\n\n{evidence}\n\n"
-        "This answer was summarized from retrieved knowledge chunks."
+        f"根据知识库中最相关的内容，针对“{question}”可以参考以下资料：\n\n"
+        f"{evidence}\n\n"
+        "以上内容来自检索到的知识片段，请结合引用来源核验关键信息。"
     )
 
 
@@ -314,7 +354,7 @@ def chunk_text(text: str, size: int = 48) -> list[str]:
     return [text[index : index + size] for index in range(0, len(text), size)]
 
 
-def build_messages(
+def build_messages(  # deprecated: answer generation is now unified in the ReAct agent.
     question: str,
     results: list[SearchResult],
     answer_mode: AnswerMode,
@@ -328,9 +368,9 @@ def build_messages(
         for index, result in enumerate(results, start=1)
     )
     mode_instruction = (
-        "Give a concise answer in 3 to 6 bullet points."
+        "请用 3 到 6 个要点简洁回答。"
         if answer_mode == "fast"
-        else "Analyze the evidence carefully, then provide only the final structured answer."
+        else "请仔细分析证据，然后只输出结构化的最终回答。"
     )
     return [
         {
@@ -338,13 +378,16 @@ def build_messages(
             "content": (
                 "You are an enterprise RAG assistant. Answer strictly from the provided "
                 "evidence. Do not invent facts outside the evidence. Cite key claims "
-                "with references such as [1] or [2]. If evidence is insufficient, say so clearly."
+                "with references such as [1] or [2]. If evidence is insufficient, say so clearly. "
+                "Answer in the same language as the user's question; if the question contains "
+                "Chinese, answer in Simplified Chinese."
             ),
         },
         {
             "role": "user",
             "content": (
                 f"Answer mode: {answer_mode}\n"
+                "Answer language: 跟随用户问题语言；中文问题请使用简体中文。\n"
                 f"Answer requirement: {mode_instruction}\n\n"
                 f"User question: {question}\n\n"
                 f"Available evidence:\n{evidence}"

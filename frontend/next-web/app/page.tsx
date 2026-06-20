@@ -184,6 +184,15 @@ export default function Home() {
           syncAssistant();
           return;
         }
+
+        if (event.type === "error") {
+          streamContent = hasAssistantMessage
+            ? `${streamContent}\n\n流式生成中断：${event.message}`
+            : `流式生成失败：${event.message}`;
+          syncAssistant();
+          setNotice(event.message);
+          return;
+        }
       });
     } catch (error) {
       const errorMessage =

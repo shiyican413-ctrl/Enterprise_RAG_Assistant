@@ -1,12 +1,13 @@
+import asyncio
 from collections.abc import AsyncIterator
 
-from backend.ai_service.config import TOP_K
-from backend.ai_service.services.chat_model_service import AnswerMode
-from backend.ai_service.services.executor_service import ExecutorService
-from backend.ai_service.services.guardrail_service import GuardrailService
-from backend.ai_service.services.memory_service import MemoryService
-from backend.ai_service.services.planner_service import PlannerService
-from backend.ai_service.services.trace_service import TraceContext, TraceService, traced_step
+from backend.ai_service.core.config import TOP_K
+from backend.ai_service.llm.chat_client import AnswerMode
+from backend.ai_service.agent.executor import ExecutorService
+from backend.ai_service.agent.guardrails import GuardrailService
+from backend.ai_service.application.memory import MemoryService
+from backend.ai_service.agent.planner import PlannerService
+from backend.ai_service.observability.tracing import TraceContext, TraceService, traced_step
 
 
 class ChatWorkflow:
@@ -100,7 +101,8 @@ class ChatWorkflow:
 
         yield {"type": "phase", "layer": "planner", "status": "start", "label": "规划层 · 分析问题并制定路线"}
         with traced_step(self.trace_service, trace, "planner.create_plan"):
-            plan = self.planner.create_plan(
+            plan = await asyncio.to_thread(
+                self.planner.create_plan,
                 question=question,
                 answer_mode=answer_mode,
                 memory=memory_context,

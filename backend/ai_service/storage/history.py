@@ -3,7 +3,7 @@ import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
-from backend.ai_service.config import DATABASE_URL, HISTORY_FILE
+from backend.ai_service.core.config import DATABASE_URL, HISTORY_FILE
 
 
 class HistoryService:

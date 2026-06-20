@@ -120,6 +120,10 @@ export type StreamEvent =
       content: Source[];
     }
   | {
+      type: "error";
+      message: string;
+    }
+  | {
       type: "done";
       conversation_id: string;
       trace_id?: string | null;
@@ -250,6 +254,27 @@ export async function deleteDocument(
 ): Promise<DeleteDocumentResult> {
   const response = await fetch(`${API_BASE_URL}/api/documents/${documentId}`, {
     method: "DELETE",
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response));
+  }
+
+  return response.json();
+}
+
+export type BatchDeleteResult = {
+  document_ids: string[];
+  deleted_chunks: number;
+};
+
+export async function batchDeleteDocuments(
+  documentIds: string[],
+): Promise<BatchDeleteResult> {
+  const response = await fetch(`${API_BASE_URL}/api/documents/batch-delete`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ document_ids: documentIds }),
   });
 
   if (!response.ok) {

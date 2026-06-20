@@ -1,11 +1,13 @@
 # Enterprise RAG Assistant
 
-面向企业内部资料、制度查询、产品知识和客服辅助场景的 RAG 智能问答平台。项目当前已经形成一个可运行的前后端 MVP：后端使用 FastAPI 提供文档入库、向量检索、流式问答和会话存储能力；前端使用 Next.js 构建企业知识库智能问答控制台。
+面向企业内部资料、制度查询、产品知识和客服辅助场景的企业级 RAG 智能问答平台。项目定位不是 MVP 或演示 Demo，而是按企业级知识库平台目标建设：后端使用 FastAPI 提供文档入库、Milvus 向量检索、流式问答、智能体编排和会话存储能力；前端使用 Next.js 构建企业知识库智能问答控制台。
+
+> 项目定位：企业级长期演进项目。当前的 Planner、Executor、ReAct Agent、Trace、知识库管理、Milvus 与 PostgreSQL 分层存储等设计，都是为了后续扩展权限审计、多知识库空间、可观测性、检索质量治理和企业运维能力。
 
 核心链路：
 
 ```text
-文档上传 -> 文本解析 -> 文本切分 -> PostgreSQL/pgvector 入库 -> 相似度检索 -> 流式问答 -> 引用追溯 -> 会话记录
+文档上传 -> 文本解析 -> 文本切分 -> Milvus 向量入库 -> 相似度检索 -> 流式问答 -> 引用追溯 -> 会话记录
 ```
 
 ## 界面预览
@@ -31,8 +33,8 @@
 ## 当前能力
 
 - 文档入库：支持 `.txt`、`.md`、`.csv`、`.json`、`.pdf` 文件上传、解析、切分和入库。
-- 语义检索：配置 `DASHSCOPE_API_KEY` 后使用阿里云百炼 `text-embedding-v4` 生成 dense embedding，并写入 PostgreSQL + pgvector。
-- 降级检索：未配置模型 Key 时保留本地稀疏检索和模板回答能力，便于离线开发和链路验证。
+- 语义检索：配置 `DASHSCOPE_API_KEY` 后使用阿里云百炼 `text-embedding-v4` 生成 dense embedding，并写入 Milvus。
+- 降级检索：设置 `VECTOR_STORE_BACKEND=local` 时保留本地稀疏检索和模板回答能力，便于离线开发和链路验证。
 - 智能问答：支持普通问答接口和 SSE 流式问答接口，返回回答正文、引用来源、会话 ID、回答模式和模型信息。
 - 双回答模式：快速模式和思考模式默认使用火山方舟豆包 `doubao-seed-2-0-lite-260428`。
 - 会话记录：问答历史写入 PostgreSQL，可按 `conversation_id` 查询。
@@ -43,10 +45,16 @@
 ```text
 backend/
   ai_service/
-    api/                 FastAPI 路由和请求/响应模型
-    loaders/             TXT/Markdown/CSV/JSON/PDF 文档解析
-    services/            RAG、知识库、检索、模型和会话服务
-    config.py            环境变量、模型和切分参数配置
+    api/                 FastAPI 路由、请求/响应模型和共享依赖
+    application/         对话用例编排、RAG 门面、会话记忆
+    agent/               Planner、Executor、ReAct Agent 和输入护栏
+    core/                环境变量、模型和切分参数配置
+    knowledge/           文档入库、文本切分和文件解析
+    llm/                 大模型客户端适配
+    observability/       Trace 和链路步骤记录
+    retrieval/           向量存储、embedding 和检索实现
+    storage/             会话历史存储和存储工厂
+    tools/               Agent 可调用工具
     main.py              FastAPI 应用入口
 frontend/
   next-web/
@@ -60,15 +68,18 @@ docs/
   images/                README 截图
   *.md                   架构、部署和页面设计文档
 test-split/              用于测试入库的企业资料样例
-tests/                   后端测试
+tests/                   按 API、应用编排、Agent 分层的后端测试
 requirements.txt         Python 依赖
 ```
 
 ## 环境配置
 
-后端会读取项目根目录下的 `.env`。PostgreSQL/pgvector 是当前主要存储方式，需要先创建数据库并安装 pgvector 扩展。
+后端会读取项目根目录下的 `.env`。Milvus 是当前默认向量库，用于存储知识库文档片段和 embedding；PostgreSQL 仍用于会话记录。
 
 ```text
+VECTOR_STORE_BACKEND=milvus
+MILVUS_URI=http://127.0.0.1:19530
+MILVUS_COLLECTION=enterprise_rag_chunks
 DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/enterprise_rag
 
 ARK_API_KEY=your-volcengine-ark-api-key
@@ -82,7 +93,7 @@ BAILIAN_EMBEDDING_MODEL=text-embedding-v4
 EMBEDDING_DIMENSIONS=2048
 ```
 
-首次启动时服务会自动执行 `CREATE EXTENSION IF NOT EXISTS vector`，并创建 `documents`、`document_chunks`、`chat_turns` 表。使用 pgvector 入库时需要配置 `DASHSCOPE_API_KEY`，否则无法生成向量。
+首次启动时服务会自动创建 Milvus collection 和向量索引。使用 Milvus 入库时需要配置 `DASHSCOPE_API_KEY`，否则无法生成向量。若要离线开发，可设置 `VECTOR_STORE_BACKEND=local`。
 
 ## 后端启动
 

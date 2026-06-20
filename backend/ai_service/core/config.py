@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 
 
-BASE_DIR = Path(__file__).resolve().parents[2]
+BASE_DIR = Path(__file__).resolve().parents[3]
 DATA_DIR = BASE_DIR / "data"
 UPLOAD_DIR = DATA_DIR / "uploads"
 KNOWLEDGE_DIR = DATA_DIR / "knowledge_base"
@@ -37,6 +37,11 @@ TOP_K = 4
 VECTOR_SCORE_THRESHOLD = float(os.getenv("VECTOR_SCORE_THRESHOLD", "0.20"))
 
 DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+VECTOR_STORE_BACKEND = os.getenv("VECTOR_STORE_BACKEND", "milvus").strip().lower()
+MILVUS_URI = os.getenv("MILVUS_URI", "http://127.0.0.1:19530").strip()
+MILVUS_TOKEN = os.getenv("MILVUS_TOKEN", "").strip()
+MILVUS_DB_NAME = os.getenv("MILVUS_DB_NAME", "").strip()
+MILVUS_COLLECTION = os.getenv("MILVUS_COLLECTION", "enterprise_rag_chunks").strip()
 
 SUPPORTED_EXTENSIONS = {".txt", ".md", ".csv", ".json", ".pdf"}
 

@@ -3,6 +3,7 @@
 import type { ChangeEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  batchDeleteDocuments,
   checkHealth,
   deleteDocument,
   fetchDocumentChunks,
@@ -25,6 +26,8 @@ export function useKnowledgePage() {
   const [selectedDocument, setSelectedDocument] =
     useState<KnowledgeDocument | null>(null);
   const [pendingDelete, setPendingDelete] = useState<KnowledgeDocument | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState(false);
   const [showRebuildConfirm, setShowRebuildConfirm] = useState(false);
   const [query, setQuery] = useState("");
   const [extension, setExtension] = useState("all");
@@ -162,6 +165,11 @@ export function useKnowledgePage() {
     try {
       const result = await deleteDocument(pendingDelete.document_id);
       setPendingDelete(null);
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(result.document_id);
+        return next;
+      });
       setSelectedDocument((current) =>
         current?.document_id === result.document_id ? null : current,
       );
@@ -178,6 +186,57 @@ export function useKnowledgePage() {
     } finally {
       setIsDeleting(false);
     }
+  }
+
+  async function handleBatchDelete() {
+    if (!selectedIds.size || isDeleting) return;
+
+    setIsDeleting(true);
+    const ids = Array.from(selectedIds);
+    try {
+      const result = await batchDeleteDocuments(ids);
+      setShowBatchDeleteConfirm(false);
+      setSelectedIds(new Set());
+      setSelectedDocument((current) =>
+        current && ids.includes(current.document_id) ? null : current,
+      );
+      await refreshKnowledge();
+      setNotice({
+        tone: "success",
+        text: `已批量删除 ${ids.length} 个文档，共移除 ${result.deleted_chunks} 个片段。原始上传文件仍保留。`,
+      });
+    } catch (error) {
+      setNotice({
+        tone: "error",
+        text: error instanceof Error ? error.message : "批量删除失败",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
+  function toggleSelect(documentId: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(documentId)) {
+        next.delete(documentId);
+      } else {
+        next.add(documentId);
+      }
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === filteredDocuments.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredDocuments.map((doc) => doc.document_id)));
+    }
+  }
+
+  function clearSelection() {
+    setSelectedIds(new Set());
   }
 
   async function handleRebuild() {
@@ -211,10 +270,12 @@ export function useKnowledgePage() {
   return {
     availableExtensions,
     chunks,
+    clearSelection,
     documents,
     extension,
     fileRef,
     filteredDocuments,
+    handleBatchDelete,
     isDeleting,
     isHealthy,
     isLoading,
@@ -225,7 +286,11 @@ export function useKnowledgePage() {
     pendingDelete,
     query,
     selectedDocument,
+    selectedIds,
+    showBatchDeleteConfirm,
     showRebuildConfirm,
+    toggleSelect,
+    toggleSelectAll,
     totalChunks,
     copyDocumentId,
     handleDelete,
@@ -236,6 +301,7 @@ export function useKnowledgePage() {
     setPendingDelete,
     setQuery,
     setSelectedDocument,
+    setShowBatchDeleteConfirm,
     setShowRebuildConfirm,
   };
 }

@@ -1,15 +1,15 @@
 from collections.abc import AsyncIterator
 
-from backend.ai_service.config import TOP_K
-from backend.ai_service.services.chat_model_service import AnswerMode, DoubaoChatClient
-from backend.ai_service.services.executor_service import ExecutorService
-from backend.ai_service.services.guardrail_service import GuardrailService
-from backend.ai_service.services.history_service import HistoryService, PostgresHistoryService
-from backend.ai_service.services.memory_service import MemoryService
-from backend.ai_service.services.planner_service import PlannerService
-from backend.ai_service.services.trace_service import TraceService
-from backend.ai_service.services.vector_store_service import PostgresVectorStore
-from backend.ai_service.services.workflow_service import ChatWorkflow
+from backend.ai_service.core.config import TOP_K
+from backend.ai_service.llm.chat_client import AnswerMode, DoubaoChatClient
+from backend.ai_service.agent.executor import ExecutorService
+from backend.ai_service.agent.guardrails import GuardrailService
+from backend.ai_service.storage.history import HistoryService, PostgresHistoryService
+from backend.ai_service.application.memory import MemoryService
+from backend.ai_service.agent.planner import PlannerService
+from backend.ai_service.storage.factory import create_vector_store
+from backend.ai_service.observability.tracing import TraceService
+from backend.ai_service.application.chat_workflow import ChatWorkflow
 from backend.ai_service.tools.knowledge_search_tool import KnowledgeSearchTool
 from backend.ai_service.tools.registry import ToolRegistry
 
@@ -18,7 +18,7 @@ class OrchestratorService:
     def __init__(
         self,
         *,
-        vector_store: PostgresVectorStore | None = None,
+        vector_store=None,
         history_service: HistoryService | None = None,
         chat_client: DoubaoChatClient | None = None,
         planner: PlannerService | None = None,
@@ -29,7 +29,7 @@ class OrchestratorService:
         workflow: ChatWorkflow | None = None,
         guardrails: GuardrailService | None = None,
     ) -> None:
-        self.vector_store = vector_store or PostgresVectorStore()
+        self.vector_store = vector_store or create_vector_store()
         self.history_service = history_service or PostgresHistoryService()
         self.chat_client = chat_client or DoubaoChatClient()
         self.trace_service = trace_service or TraceService()

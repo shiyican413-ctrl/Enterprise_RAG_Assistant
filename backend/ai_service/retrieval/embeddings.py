@@ -2,7 +2,7 @@ from collections.abc import Sequence
 
 import httpx
 
-from backend.ai_service.config import (
+from backend.ai_service.core.config import (
     BAILIAN_EMBEDDING_MODEL,
     BAILIAN_EMBEDDING_URL,
     DASHSCOPE_API_KEY,

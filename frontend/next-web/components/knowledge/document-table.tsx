@@ -9,24 +9,41 @@ type DocumentTableProps = {
   documents: KnowledgeDocument[];
   isLoading: boolean;
   totalDocuments: number;
+  selectedIds: Set<string>;
   onSelect: (document: KnowledgeDocument) => void;
   onCopyId: (documentId: string) => void;
   onDelete: (document: KnowledgeDocument) => void;
+  onToggleSelect: (documentId: string) => void;
+  onToggleSelectAll: () => void;
 };
 
 export function DocumentTable({
   documents,
   isLoading,
   totalDocuments,
+  selectedIds,
   onSelect,
   onCopyId,
   onDelete,
+  onToggleSelect,
+  onToggleSelectAll,
 }: DocumentTableProps) {
+  const allSelected = documents.length > 0 && selectedIds.size === documents.length;
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[860px] border-collapse text-left">
         <thead className="bg-[#f8faff] text-xs font-bold uppercase text-[#667085]">
           <tr>
+            <th className="w-12 px-4 py-3">
+              <input
+                type="checkbox"
+                checked={allSelected}
+                onChange={onToggleSelectAll}
+                className="size-4 cursor-pointer rounded border-[#d9dee8] accent-[#2457e8]"
+                aria-label="全选"
+              />
+            </th>
             <th className="px-4 py-3">文档名称</th>
             <th className="px-4 py-3">类型</th>
             <th className="px-4 py-3">片段</th>
@@ -37,10 +54,22 @@ export function DocumentTable({
         </thead>
         <tbody className="divide-y divide-[#edf0f5]">
           {isLoading ? (
-            <TableMessage text="正在加载知识库文档..." />
+            <TableMessage text="正在加载知识库文档..." colSpan={7} />
           ) : documents.length ? (
             documents.map((doc) => (
-              <tr key={doc.document_id} className="transition-colors hover:bg-[#fbfcff]">
+              <tr
+                key={doc.document_id}
+                className={`transition-colors hover:bg-[#fbfcff] ${selectedIds.has(doc.document_id) ? "bg-[#f0f5ff]" : ""}`}
+              >
+                <td className="px-4 py-4">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(doc.document_id)}
+                    onChange={() => onToggleSelect(doc.document_id)}
+                    className="size-4 cursor-pointer rounded border-[#d9dee8] accent-[#2457e8]"
+                    aria-label={`选择 ${doc.document_name}`}
+                  />
+                </td>
                 <td className="max-w-[360px] px-4 py-4">
                   <button
                     type="button"
@@ -113,6 +142,7 @@ export function DocumentTable({
             ))
           ) : (
             <TableMessage
+              colSpan={7}
               text={
                 totalDocuments
                   ? "没有匹配的文档，请调整搜索或筛选条件。"
@@ -126,10 +156,10 @@ export function DocumentTable({
   );
 }
 
-function TableMessage({ text }: { text: string }) {
+function TableMessage({ text, colSpan }: { text: string; colSpan: number }) {
   return (
     <tr>
-      <td colSpan={6} className="px-4 py-12 text-center text-sm font-semibold text-[#667085]">
+      <td colSpan={colSpan} className="px-4 py-12 text-center text-sm font-semibold text-[#667085]">
         {text}
       </td>
     </tr>
