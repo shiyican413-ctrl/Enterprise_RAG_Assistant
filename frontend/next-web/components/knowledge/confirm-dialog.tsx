@@ -22,20 +22,20 @@ export function ConfirmDialog({
   onConfirm,
 }: ConfirmDialogProps) {
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/30 px-4">
-      <div className="w-full max-w-[440px] rounded-[8px] border border-[#e4e8f0] bg-white p-5 shadow-2xl">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/45 px-4">
+      <div className="w-full max-w-[440px] rounded-[8px] border border-[var(--work-border)] bg-[var(--work-surface)] p-5 shadow-2xl">
         <div className="flex gap-3">
           <span
             className={cn(
               "grid size-10 shrink-0 place-items-center rounded-[8px]",
-              tone === "danger" && "bg-red-50 text-red-600",
+              tone === "danger" && "bg-[var(--work-danger-soft)] text-red-600",
             )}
           >
             <AlertTriangle className="size-5" />
           </span>
           <div>
-            <h2 className="text-base font-bold text-[#111827]">{title}</h2>
-            <p className="mt-2 text-sm leading-6 text-[#667085]">{description}</p>
+            <h2 className="text-base font-bold text-[var(--work-text)]">{title}</h2>
+            <p className="mt-2 text-sm leading-6 text-[var(--work-muted)]">{description}</p>
           </div>
         </div>
         <div className="mt-5 flex justify-end gap-2">

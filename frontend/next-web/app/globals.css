@@ -52,6 +52,121 @@
   --sidebar-accent-foreground: oklch(0.205 0.018 255);
   --sidebar-border: oklch(0.905 0.010 255);
   --sidebar-ring: oklch(0.595 0.215 258);
+
+  /* Shared Sidebar palette — LIGHT defaults (used by /knowledge and any route
+     that doesn't import console.css). The dark `/` chat page overrides these
+     under `.console-root` in app/console.css. Values mirror the original
+     light sidebar look so /knowledge is unchanged. */
+  --side-bg: #f7f8fb;
+  --side-fg: #15181d;
+  --side-muted: #9aa0aa;
+  --side-border: #e8ebf1;
+  --side-hover: #ebeef4;
+  --side-active-bg: #ebeef4;
+  --side-active-ring: #111317;
+  --side-accent: #2f66ff;
+  --side-avatar-fg: #ffffff;
+}
+
+.workspace-root {
+  --workspace-bg: #f4f6fa;
+  --workspace-shell: #ffffff;
+  --workspace-shell-border: #e4e8f0;
+  --workspace-canvas: #f4f6fa;
+  --workspace-brand: #0c0c0b;
+  --work-surface: #ffffff;
+  --work-surface-subtle: #f8fafc;
+  --work-surface-muted: #f1f5f9;
+  --work-border: #dbe3ef;
+  --work-border-strong: #cbd5e1;
+  --work-text: #111827;
+  --work-text-soft: #334155;
+  --work-muted: #64748b;
+  --work-faint: #94a3b8;
+  --work-accent: #2563eb;
+  --work-accent-strong: #1d4ed8;
+  --work-accent-soft: #eff6ff;
+  --work-danger: #dc2626;
+  --work-danger-soft: #fef2f2;
+  --work-success: #059669;
+  --work-success-soft: #ecfdf5;
+  --graphite: var(--work-border);
+  --charcoal: var(--work-surface-subtle);
+  --smoke: var(--work-border-strong);
+  --ash: var(--work-muted);
+  --bone: var(--work-border-strong);
+  --stellar-white: var(--work-text);
+  --signal-blue: var(--work-accent);
+
+  --side-bg: #f7f8fb;
+  --side-fg: #15181d;
+  --side-muted: #8a93a3;
+  --side-border: #e8ebf1;
+  --side-hover: #ebeef4;
+  --side-active-bg: #ebeef4;
+  --side-active-ring: #111317;
+  --side-accent: var(--work-accent);
+  --side-avatar-fg: #ffffff;
+
+  background: var(--workspace-canvas);
+  color: var(--work-text);
+  font-family: var(--font-sans);
+}
+
+.workspace-root .console-bloom,
+.workspace-root .console-aurora {
+  display: none;
+}
+
+.workspace-root .console-headline {
+  color: var(--work-text);
+}
+
+.workspace-root .console-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 9999px;
+  border: 1px solid var(--work-border-strong);
+  background: var(--work-surface);
+  color: var(--work-text);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.workspace-root .console-pill:hover {
+  border-color: var(--work-accent);
+  background: var(--work-accent-soft);
+}
+
+.workspace-root .console-mono {
+  font-family: "JetBrains Mono", ui-monospace, "SF Mono", "Cascadia Mono",
+    SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--work-muted);
+}
+
+.workspace-root .console-composer {
+  border-color: var(--work-border-strong);
+  background: var(--work-surface);
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.workspace-root .console-composer:focus-within {
+  border-color: var(--work-accent);
+  box-shadow:
+    0 0 0 3px rgba(37, 99, 235, 0.14),
+    0 18px 48px rgba(15, 23, 42, 0.1);
+}
+
+.workspace-root .console-dot-running {
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
 }
 
 body {

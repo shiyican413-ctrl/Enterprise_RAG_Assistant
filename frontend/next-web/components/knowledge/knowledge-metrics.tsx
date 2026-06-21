@@ -32,9 +32,9 @@ export function KnowledgeMetrics({
 
 function MetricCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[8px] border border-[#e4e8f0] bg-white p-4 shadow-[0_1px_2px_rgba(16,24,40,0.03)]">
-      <div className="text-xs font-bold text-[#8a93a3]">{label}</div>
-      <div className="mt-2 truncate text-xl font-bold text-[#111827]">{value}</div>
+    <div className="rounded-[8px] border border-[var(--work-border)] bg-[var(--work-surface)] p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_14px_34px_rgba(15,23,42,0.05)]">
+      <div className="text-xs font-bold text-[var(--work-muted)]">{label}</div>
+      <div className="mt-2 truncate text-xl font-bold text-[var(--work-text)]">{value}</div>
     </div>
   );
 }

@@ -28,25 +28,25 @@ export function DocumentToolbar({
   onClearSelection,
 }: DocumentToolbarProps) {
   return (
-    <div className="flex flex-col gap-3 border-b border-[#e8ebf1] px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
+    <div className="flex flex-col gap-3 border-b border-[var(--work-border)] bg-[var(--work-surface)] px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
       <div className="relative min-w-0 flex-1">
-        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#8a93a3]" />
+        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--work-faint)]" />
         <input
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
           placeholder="按文档名、ID、MD5、路径搜索"
-          className="h-10 w-full rounded-[8px] border border-[#d9dee8] bg-[#fbfcff] pl-9 pr-3 text-sm font-medium outline-none transition-colors placeholder:text-[#98a2b3] focus:border-[#2457e8] focus:bg-white"
+          className="h-10 w-full rounded-[8px] border border-[var(--work-border-strong)] bg-[var(--work-surface-subtle)] pl-9 pr-3 text-sm font-medium text-[var(--work-text)] outline-none transition-colors placeholder:text-[var(--work-faint)] focus:border-[var(--work-accent)] focus:bg-[var(--work-surface)]"
         />
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
         {selectedCount > 0 && (
           <>
-            <Badge variant="outline" className="h-10 gap-1.5 rounded-[8px] border-[#2457e8] bg-[#f0f5ff] px-3 text-sm font-semibold text-[#2457e8]">
+            <Badge variant="outline" className="h-10 gap-1.5 rounded-[8px] border-[var(--work-accent)] bg-[var(--work-accent-soft)] px-3 text-sm font-semibold text-[var(--work-accent)]">
               已选 {selectedCount} 项
               <button
                 type="button"
-                className="grid size-4 place-items-center rounded-full transition-colors hover:bg-[#2457e8]/10"
+                className="grid size-4 place-items-center rounded-full transition-colors hover:bg-[rgba(37,99,235,0.12)]"
                 onClick={onClearSelection}
                 aria-label="取消选择"
               >
@@ -65,12 +65,12 @@ export function DocumentToolbar({
             </Button>
           </>
         )}
-        <div className="flex h-10 items-center gap-2 rounded-[8px] border border-[#d9dee8] bg-white px-3">
-          <Filter className="size-4 text-[#667085]" />
+        <div className="flex h-10 items-center gap-2 rounded-[8px] border border-[var(--work-border-strong)] bg-[var(--work-surface)] px-3">
+          <Filter className="size-4 text-[var(--work-muted)]" />
           <select
             value={extension}
             onChange={(event) => onExtensionChange(event.target.value)}
-            className="bg-transparent text-sm font-semibold text-[#344054] outline-none"
+            className="bg-transparent text-sm font-semibold text-[var(--work-text-soft)] outline-none"
             aria-label="文件类型筛选"
           >
             <option value="all">全部类型</option>
@@ -81,7 +81,7 @@ export function DocumentToolbar({
             ))}
           </select>
         </div>
-        <Badge variant="outline" className="h-10 rounded-[8px] px-3 text-sm">
+        <Badge variant="outline" className="h-10 rounded-[8px] border-[var(--work-border-strong)] px-3 text-sm text-[var(--work-text-soft)]">
           {filteredCount} / {totalCount} 个文档
         </Badge>
       </div>

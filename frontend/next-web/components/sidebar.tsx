@@ -40,32 +40,34 @@ export function Sidebar({ isHealthy }: SidebarProps) {
     { label: "企微助手", icon: MessageCircleQuestion },
   ];
 
+  // Palette is driven by CSS variables so the same component can sit inside
+  // the dark console shell or a workspace shell without duplicating markup.
   return (
-    <aside className="flex h-full w-full flex-col border-r border-[#e8ebf1] bg-[#f7f8fb]">
+    <aside className="flex h-full w-full flex-col border-r border-[var(--side-border)] bg-[var(--side-bg)]">
       <div className="flex h-[72px] items-center gap-3 px-6">
-        <div className="relative grid size-11 shrink-0 place-items-center rounded-full bg-[#111317] text-sm font-bold text-white shadow-[0_10px_24px_rgba(17,19,23,0.18)]">
+        <div className="relative grid size-11 shrink-0 place-items-center rounded-full bg-[var(--side-active-ring)] text-sm font-bold text-[var(--side-avatar-fg)] shadow-[0_10px_24px_rgba(17,19,23,0.18)]">
           R
         </div>
-        <div className="text-[20px] font-bold leading-none tracking-normal text-[#15181d]">
+        <div className="text-[20px] font-bold leading-none tracking-normal text-[var(--side-fg)]">
           企业 <span className="ml-2">RAG</span>
         </div>
       </div>
 
-      <div className="flex items-center gap-3 px-6 pb-7 pt-3 text-[20px] font-semibold text-[#171a20]">
+      <div className="flex items-center gap-3 px-6 pb-7 pt-3 text-[20px] font-semibold text-[var(--side-fg)]">
         <ArrowLeft className="size-5" strokeWidth={2.1} />
         <span>工作台</span>
       </div>
 
       <nav className="flex-1 px-3">
-        <p className="px-3 pb-3 text-sm font-medium text-[#9aa0aa]">核心功能</p>
+        <p className="px-3 pb-3 text-sm font-medium text-[var(--side-muted)]">核心功能</p>
         <div className="grid gap-1.5">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive =
               item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
             const className = cn(
-              "flex h-11 items-center gap-3 rounded-[10px] px-4 text-[16px] font-medium text-[#262a31] transition-colors hover:bg-[#ebeef4]",
-              isActive && "bg-[#ebeef4] font-semibold ring-2 ring-[#111317]",
+              "flex h-11 items-center gap-3 rounded-[10px] px-4 text-[16px] font-medium text-[var(--side-fg)] transition-colors hover:bg-[var(--side-hover)]",
+              isActive && "bg-[var(--side-active-bg)] font-semibold ring-2 ring-[var(--side-active-ring)]",
               item.disabled && "cursor-not-allowed opacity-60 hover:bg-transparent",
             );
 
@@ -87,16 +89,16 @@ export function Sidebar({ isHealthy }: SidebarProps) {
           })}
         </div>
 
-        <p className="px-3 pb-3 pt-7 text-sm font-medium text-[#9aa0aa]">项目能力</p>
+        <p className="px-3 pb-3 pt-7 text-sm font-medium text-[var(--side-muted)]">项目能力</p>
         <div className="grid gap-1">
           {highlightItems.map((item) => {
             const Icon = item.icon;
             return (
               <div
                 key={item.label}
-                className="flex h-9 items-center gap-3 rounded-[10px] px-4 text-sm font-medium text-[#5f6878]"
+                className="flex h-9 items-center gap-3 rounded-[10px] px-4 text-sm font-medium text-[var(--side-muted)]"
               >
-                <Icon className="size-4 text-[#2f66ff]" strokeWidth={2.1} />
+                <Icon className="size-4 text-[var(--side-accent)]" strokeWidth={2.1} />
                 <span>{item.label}</span>
               </div>
             );
@@ -104,19 +106,19 @@ export function Sidebar({ isHealthy }: SidebarProps) {
         </div>
       </nav>
 
-      <div className="border-t border-[#e8ebf1] px-3 py-5">
+      <div className="border-t border-[var(--side-border)] px-3 py-5">
         {footerItems.map((item, index) => {
           const Icon = item.icon;
           return (
             <button
               key={item.label}
               type="button"
-              className="flex h-11 w-full items-center gap-3 rounded-[10px] px-4 text-[16px] font-medium text-[#262a31] transition-colors hover:bg-[#ebeef4]"
+              className="flex h-11 w-full items-center gap-3 rounded-[10px] px-4 text-[16px] font-medium text-[var(--side-fg)] transition-colors hover:bg-[var(--side-hover)]"
             >
               <Icon
                 className={cn(
                   "size-5",
-                  index === 1 && (isHealthy ? "text-emerald-500" : "text-[#9aa0aa]"),
+                  index === 1 && (isHealthy ? "text-emerald-500" : "text-[var(--side-muted)]"),
                 )}
                 strokeWidth={2.1}
               />

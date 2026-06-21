@@ -13,13 +13,25 @@ export default function KnowledgePage() {
   const knowledge = useKnowledgePage();
 
   return (
-    <div className="min-h-screen bg-[#f4f6fa] text-[#101318] lg:overflow-hidden">
+    <div className="workspace-root min-h-screen bg-[var(--workspace-canvas)] text-[var(--work-text)] lg:overflow-hidden">
       <div className="grid min-h-screen grid-cols-1 lg:h-screen lg:grid-cols-[280px_minmax(0,1fr)]">
         <div className="hidden min-h-0 lg:block">
           <Sidebar isHealthy={knowledge.isHealthy} />
         </div>
 
-        <main className="min-h-0 overflow-y-auto">
+        <header className="flex h-14 items-center justify-between border-b border-[var(--work-border)] bg-[var(--work-surface)] px-4 text-[var(--work-text)] lg:hidden">
+          <div className="flex items-center gap-3">
+            <span className="grid size-8 place-items-center rounded-full bg-[var(--workspace-brand)] text-sm font-bold text-white">
+              R
+            </span>
+            <span className="text-base font-bold">企业 RAG</span>
+          </div>
+          <span className="text-xs font-semibold text-[var(--work-muted)]">
+            {knowledge.isHealthy ? "服务在线" : "等待后端"}
+          </span>
+        </header>
+
+        <main className="min-h-0 overflow-y-auto bg-[var(--workspace-canvas)]">
           <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-5 px-4 py-5 sm:px-6 lg:px-8">
             <KnowledgeHeader
               fileRef={knowledge.fileRef}
@@ -39,7 +51,7 @@ export default function KnowledgePage() {
               totalChunks={knowledge.totalChunks}
             />
 
-            <section className="rounded-[8px] border border-[#e4e8f0] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.03)]">
+            <section className="overflow-hidden rounded-[8px] border border-[var(--work-border)] bg-[var(--work-surface)] shadow-[0_1px_2px_rgba(15,23,42,0.04),0_18px_42px_rgba(15,23,42,0.06)]">
               <DocumentToolbar
                 query={knowledge.query}
                 extension={knowledge.extension}

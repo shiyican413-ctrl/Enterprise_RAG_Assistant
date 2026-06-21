@@ -21,7 +21,7 @@ import { Sidebar } from "@/components/sidebar";
 import { ChatPanel } from "@/components/chat-panel";
 import { InspectorPanel } from "@/components/inspector-panel";
 import { CircleCheck, Plus, UserRound } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import "./console.css";
 
 export default function Home() {
   const [question, setQuestion] = useState("");
@@ -247,31 +247,29 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f4f6fa] text-[#101318] lg:overflow-hidden">
+    <div className="workspace-root min-h-screen bg-[var(--workspace-canvas)] text-[var(--work-text)] lg:overflow-hidden">
       <div className="grid min-h-screen grid-cols-1 lg:h-screen lg:grid-cols-[280px_minmax(0,1fr)]">
         <div className="hidden min-h-0 lg:block">
           <Sidebar isHealthy={isHealthy} />
         </div>
 
         <main className="flex min-h-0 min-w-0 flex-col">
-          <header className="flex h-14 shrink-0 items-center justify-between border-b border-[#e8ebf1] bg-white px-4 sm:px-7">
+          <header className="flex h-14 shrink-0 items-center justify-between border-b border-[var(--work-border)] bg-[var(--work-surface)] px-4 sm:px-7">
             <div className="flex items-center gap-3 lg:hidden">
-              <div className="relative h-6 w-8">
-                <span className="absolute left-0 top-0 h-2 w-8 skew-x-[-24deg] bg-[#111317]" />
-                <span className="absolute bottom-0 left-0 h-2 w-8 skew-x-[-24deg] bg-[#111317]" />
-              </div>
-              <span className="text-lg font-bold">企业 RAG</span>
+              <span className="grid size-8 place-items-center rounded-full bg-[var(--workspace-brand)] text-sm font-bold text-white">
+                R
+              </span>
+              <span className="text-lg font-bold text-[var(--work-text)]">企业 RAG</span>
             </div>
-            <div className="hidden items-center gap-3 text-[16px] font-semibold text-[#2b3038] lg:flex">
-              <span>企业知识库智能问答平台</span>
-              <span className="h-4 w-px bg-[#d8dee9]" />
-              <span className="text-[#111317]">智能问答</span>
+            <div className="hidden items-center gap-3 lg:flex">
+              <span className="console-mono">企业知识库智能问答平台</span>
+              <span className="h-4 w-px bg-[var(--work-border)]" />
+              <span className="text-[15px] font-semibold text-[var(--work-text)]">智能问答</span>
             </div>
             <div className="flex items-center gap-3">
-              <Button
+              <button
                 type="button"
-                variant="outline"
-                className="h-9 rounded-[8px] border-[#e3e7ef] bg-white px-3 text-[14px] font-semibold text-[#111317] hover:bg-[#f6f8fc]"
+                className="console-pill console-pill--ghost"
                 onClick={() => {
                   setConversationId(undefined);
                   setMessages([
@@ -286,19 +284,19 @@ export default function Home() {
                   setQuestion("");
                 }}
               >
-                <Plus className="size-4 text-[#a5acb8]" />
+                <Plus className="size-4" strokeWidth={2} />
                 <span className="hidden sm:inline">新建对话</span>
                 <span className="sm:hidden">新建</span>
-              </Button>
-              <div className="hidden h-10 items-center gap-2 rounded-[10px] px-3 text-sm font-semibold text-[#667085] sm:flex">
+              </button>
+              <div className="hidden h-10 items-center gap-2 rounded-[10px] px-3 text-sm font-semibold text-[var(--ash)] sm:flex">
                 <CircleCheck
-                  className={isHealthy ? "size-4 text-emerald-500" : "size-4 text-[#a5acb8]"}
+                  className={isHealthy ? "size-4 text-emerald-500" : "size-4 text-[var(--ash)]"}
                 />
                 {isHealthy ? "服务在线" : "等待后端"}
               </div>
               <button
                 type="button"
-                className="grid size-10 place-items-center rounded-full text-[#111317] transition-colors hover:bg-[#f6f8fc]"
+                className="grid size-10 place-items-center rounded-full border border-[var(--work-border-strong)] bg-[var(--work-surface)] text-[var(--work-text)] transition-colors hover:border-[var(--work-accent)] hover:bg-[var(--work-accent-soft)]"
                 aria-label="用户中心"
               >
                 <UserRound className="size-5 fill-current" strokeWidth={2.2} />
@@ -307,7 +305,7 @@ export default function Home() {
           </header>
 
           <div className="min-h-0 flex-1 p-3 sm:p-4">
-            <section className="flex min-h-[calc(100vh-80px)] flex-col overflow-hidden rounded-[16px] border border-[#e4e8f0] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.02)] sm:min-h-[calc(100vh-88px)] lg:h-full lg:min-h-0">
+            <section className="flex min-h-[calc(100vh-80px)] flex-col overflow-hidden rounded-[12px] border border-[var(--work-border)] bg-[var(--work-surface)] shadow-[0_1px_2px_rgba(15,23,42,0.04),0_18px_42px_rgba(15,23,42,0.06)] sm:min-h-[calc(100vh-88px)] lg:h-full lg:min-h-0">
               <div className="grid min-h-0 flex-1 grid-cols-1 lg:min-h-0 xl:grid-cols-[minmax(0,1fr)_324px]">
                 <ChatPanel
                   messages={messages}

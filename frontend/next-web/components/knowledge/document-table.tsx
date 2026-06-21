@@ -33,14 +33,14 @@ export function DocumentTable({
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[860px] border-collapse text-left">
-        <thead className="bg-[#f8faff] text-xs font-bold uppercase text-[#667085]">
+        <thead className="bg-[var(--work-surface-subtle)] text-xs font-bold uppercase text-[var(--work-muted)]">
           <tr>
             <th className="w-12 px-4 py-3">
               <input
                 type="checkbox"
                 checked={allSelected}
                 onChange={onToggleSelectAll}
-                className="size-4 cursor-pointer rounded border-[#d9dee8] accent-[#2457e8]"
+                className="size-4 cursor-pointer rounded border-[var(--work-border-strong)] accent-[var(--work-accent)]"
                 aria-label="全选"
               />
             </th>
@@ -52,21 +52,21 @@ export function DocumentTable({
             <th className="px-4 py-3 text-right">操作</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-[#edf0f5]">
+        <tbody className="divide-y divide-[var(--work-border)]">
           {isLoading ? (
             <TableMessage text="正在加载知识库文档..." colSpan={7} />
           ) : documents.length ? (
             documents.map((doc) => (
               <tr
                 key={doc.document_id}
-                className={`transition-colors hover:bg-[#fbfcff] ${selectedIds.has(doc.document_id) ? "bg-[#f0f5ff]" : ""}`}
+                className={`transition-colors hover:bg-[var(--work-surface-subtle)] ${selectedIds.has(doc.document_id) ? "bg-[var(--work-accent-soft)]" : ""}`}
               >
                 <td className="px-4 py-4">
                   <input
                     type="checkbox"
                     checked={selectedIds.has(doc.document_id)}
                     onChange={() => onToggleSelect(doc.document_id)}
-                    className="size-4 cursor-pointer rounded border-[#d9dee8] accent-[#2457e8]"
+                    className="size-4 cursor-pointer rounded border-[var(--work-border-strong)] accent-[var(--work-accent)]"
                     aria-label={`选择 ${doc.document_name}`}
                   />
                 </td>
@@ -76,14 +76,14 @@ export function DocumentTable({
                     className="flex min-w-0 items-center gap-3 text-left"
                     onClick={() => onSelect(doc)}
                   >
-                    <span className="grid size-9 shrink-0 place-items-center rounded-[8px] bg-[#eef4ff] text-[#2457e8]">
+                    <span className="grid size-9 shrink-0 place-items-center rounded-[8px] bg-[var(--work-accent-soft)] text-[var(--work-accent)]">
                       <FileText className="size-4" />
                     </span>
                     <span className="min-w-0">
-                      <span className="block truncate text-sm font-bold text-[#1d2430]">
+                      <span className="block truncate text-sm font-bold text-[var(--work-text)]">
                         {doc.document_name}
                       </span>
-                      <span className="block truncate text-xs font-medium text-[#8a93a3]">
+                      <span className="block truncate text-xs font-medium text-[var(--work-muted)]">
                         {doc.document_id}
                       </span>
                     </span>
@@ -94,14 +94,14 @@ export function DocumentTable({
                     {displayExtension(doc)}
                   </Badge>
                 </td>
-                <td className="px-4 py-4 text-sm font-semibold text-[#344054]">
+                <td className="px-4 py-4 text-sm font-semibold text-[var(--work-text-soft)]">
                   {doc.chunk_count}
                 </td>
-                <td className="px-4 py-4 text-sm font-medium text-[#667085]">
+                <td className="px-4 py-4 text-sm font-medium text-[var(--work-muted)]">
                   {formatDate(doc.created_at)}
                 </td>
                 <td className="px-4 py-4">
-                  <Badge className="rounded-[8px] bg-emerald-50 text-emerald-700">
+                  <Badge className="rounded-[8px] bg-[var(--work-success-soft)] text-emerald-700">
                     成功
                   </Badge>
                 </td>
@@ -159,7 +159,7 @@ export function DocumentTable({
 function TableMessage({ text, colSpan }: { text: string; colSpan: number }) {
   return (
     <tr>
-      <td colSpan={colSpan} className="px-4 py-12 text-center text-sm font-semibold text-[#667085]">
+      <td colSpan={colSpan} className="px-4 py-12 text-center text-sm font-semibold text-[var(--work-muted)]">
         {text}
       </td>
     </tr>

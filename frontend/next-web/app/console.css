@@ -1,0 +1,195 @@
+/* ============================================================================
+   Enterprise RAG — Console (chat page)
+   xAI-inspired "cosmic void" theme, scoped under `.console-root` so the
+   light-themed knowledge page (/knowledge) and the landing page are never
+   touched. Shares the SAME design tokens as landing.css for visual unity.
+   Reference: docs/前端设计/DESIGN.md
+   ========================================================================== */
+
+/* ---- Design tokens (scoped, identical values to landing.css) ------------- */
+.console-root {
+  /* Colors */
+  --void-black: #0c0c0b;
+  --graphite: #1f2228;
+  --charcoal: #141619;
+  --smoke: #474747;
+  --ash: #7d8187;
+  --bone: #71717a;
+  --stellar-white: #ffffff;
+  --signal-blue: #2563eb;
+
+  /* Type families — offline-safe system stacks (match landing.css) */
+  --font-universal: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "PingFang SC", "Microsoft YaHei", "Noto Sans SC", Roboto, Helvetica, Arial,
+    sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", "Cascadia Mono",
+    SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+
+  /* Sidebar palette (dark values — overrides globals.css :root light defaults) */
+  --side-bg: var(--void-black);
+  --side-fg: var(--stellar-white);
+  --side-muted: var(--ash);
+  --side-border: var(--graphite);
+  --side-hover: rgba(255, 255, 255, 0.04);
+  --side-active-bg: rgba(255, 255, 255, 0.06);
+  --side-active-ring: var(--stellar-white);
+  --side-accent: var(--signal-blue);
+  --side-avatar-fg: var(--void-black);
+
+  /* Canvas */
+  background-color: var(--void-black);
+  color: var(--stellar-white);
+  color-scheme: dark;
+  font-family: var(--font-universal);
+  letter-spacing: -0.025em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  position: relative;
+  isolation: isolate;
+}
+
+/* ---- Ambient layers (restrained: aurora + bloom only) -------------------- */
+
+/* Two low-opacity aurora orbs drifting slowly behind everything */
+.console-root .console-aurora {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.console-root .console-aurora span {
+  position: absolute;
+  display: block;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.3;
+  mix-blend-mode: screen;
+  will-change: transform;
+}
+.console-root .console-aurora span:nth-child(1) {
+  width: 44vw;
+  height: 44vw;
+  left: -8vw;
+  top: 6vh;
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.5), transparent 65%);
+  animation: console-aurora-1 30s ease-in-out infinite alternate;
+}
+.console-root .console-aurora span:nth-child(2) {
+  width: 40vw;
+  height: 40vw;
+  right: -6vw;
+  bottom: -8vh;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.4), transparent 65%);
+  animation: console-aurora-2 34s ease-in-out infinite alternate;
+}
+@keyframes console-aurora-1 {
+  0% { transform: translate(0, 0); }
+  100% { transform: translate(7vw, 5vh); }
+}
+@keyframes console-aurora-2 {
+  0% { transform: translate(0, 0); }
+  100% { transform: translate(-6vw, -6vh); }
+}
+
+/* Luminous bloom behind the welcome / empty state */
+.console-root .console-bloom {
+  position: absolute;
+  top: 42%;
+  left: 50%;
+  width: min(720px, 80vw);
+  height: min(720px, 80vw);
+  transform: translate(-50%, -50%);
+  background: radial-gradient(
+    circle at center,
+    rgba(255, 255, 255, 0.10) 0%,
+    rgba(189, 201, 230, 0.08) 26%,
+    rgba(37, 99, 235, 0.07) 46%,
+    rgba(12, 12, 11, 0) 70%
+  );
+  pointer-events: none;
+  z-index: 0;
+  animation: console-bloom-drift 20s ease-in-out infinite alternate;
+}
+@keyframes console-bloom-drift {
+  0% { opacity: 0.75; transform: translate(-52%, -50%) scale(1); }
+  100% { opacity: 1; transform: translate(-48%, -48%) scale(1.08); }
+}
+
+/* Wordmark-style headline glow pulse (welcome state) */
+.console-root .console-headline {
+  color: var(--stellar-white);
+  text-shadow: 0 0 60px rgba(151, 196, 255, 0.22);
+  animation: console-glow-pulse 6s ease-in-out infinite;
+}
+@keyframes console-glow-pulse {
+  0%, 100% { text-shadow: 0 0 60px rgba(151, 196, 255, 0.22); }
+  50% { text-shadow: 0 0 96px rgba(151, 196, 255, 0.38); }
+}
+
+/* ---- Primitives ----------------------------------------------------------- */
+
+/* Ghost pill (matches landing .pill but inline for the console) */
+.console-root .console-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 20px;
+  border-radius: 9999px;
+  border: 1px solid var(--stellar-white);
+  background: transparent;
+  color: var(--stellar-white);
+  font-family: var(--font-universal);
+  font-size: 14px;
+  line-height: 1;
+  letter-spacing: -0.025em;
+  cursor: pointer;
+  transition: opacity 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.console-root .console-pill:hover {
+  opacity: 0.85;
+  box-shadow: 0 0 22px rgba(151, 196, 255, 0.28);
+}
+.console-root .console-pill--smoke {
+  border-color: var(--smoke);
+}
+.console-root .console-pill--ghost {
+  border-color: var(--graphite);
+}
+.console-root .console-pill--ghost:hover {
+  border-color: var(--stellar-white);
+}
+
+/* Monospace metadata label */
+.console-root .console-mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ash);
+}
+
+/* Composer: graphite hairline + 24px radius; focus → signal-blue + bone ring
+   (mirrors landing .hero-entry :focus-within) */
+.console-root .console-composer {
+  border-color: var(--graphite);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.console-root .console-composer:focus-within {
+  border-color: var(--signal-blue);
+  box-shadow: var(--bone) 0px 0px 0px 2px;
+}
+
+/* Soft glow ring used on the running status dot */
+.console-root .console-dot-running {
+  box-shadow: 0 0 10px rgba(37, 99, 235, 0.8);
+}
+
+/* ---- Reduced motion: freeze all decorative motion ------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  .console-root .console-aurora span,
+  .console-root .console-bloom,
+  .console-root .console-headline {
+    animation: none !important;
+  }
+}
