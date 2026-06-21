@@ -15,6 +15,13 @@ if not exist ".venv\Scripts\python.exe" (
   goto failed
 )
 
+REM Ensure Milvus vector database is running (backend hard dependency).
+call "%~dp0start-milvus.bat"
+if errorlevel 1 (
+  echo [backend] WARNING: Milvus is not available. The backend will fail to connect to the vector store.
+  echo [backend]          If you do not use Milvus, set VECTOR_STORE_BACKEND=local in .env.
+)
+
 ".venv\Scripts\python.exe" -m uvicorn backend.ai_service.main:app --reload --host 127.0.0.1 --port "%BACKEND_PORT%"
 set "BACKEND_EXIT_CODE=%ERRORLEVEL%"
 

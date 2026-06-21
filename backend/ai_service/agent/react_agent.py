@@ -1,4 +1,5 @@
 import json
+import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Literal
@@ -59,10 +60,11 @@ class ReActAgent:
         question: str,
         answer_mode: AnswerMode,
         evidence: Sequence[SearchResult] | None = None,
+        deadline: float | None = None,
     ) -> AgentRun:
         final_run: AgentRun | None = None
         for item in self.run_stream(
-            question=question, answer_mode=answer_mode, evidence=evidence,
+            question=question, answer_mode=answer_mode, evidence=evidence, deadline=deadline,
         ):
             if item["type"] == "final":
                 final_run = item["run"]
@@ -79,6 +81,7 @@ class ReActAgent:
         question: str,
         answer_mode: AnswerMode,
         evidence: Sequence[SearchResult] | None = None,
+        deadline: float | None = None,
     ):
         """Yield each reasoning step live, then a final run.
 
@@ -111,6 +114,11 @@ class ReActAgent:
         model: str | None = None
 
         for _ in range(self.max_steps):
+            # Runtime-imposed soft deadline: stop calling tools and force a
+            # final answer so the run cannot exceed the budget. The deadline is
+            # an absolute perf_counter timestamp passed in by the Runtime.
+            if deadline is not None and time.perf_counter() >= deadline:
+                break
             response = self.chat_client.complete(
                 messages=self._build_messages(question, answer_mode, steps, evidence=evidence),
                 mode=answer_mode,

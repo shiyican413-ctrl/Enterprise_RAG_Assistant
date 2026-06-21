@@ -80,6 +80,13 @@ if not exist "frontend\next-web\node_modules" (
   echo [start] Frontend dependencies already exist. Skipping npm install.
 )
 
+REM Ensure Milvus vector database is running (backend hard dependency).
+call "%~dp0start-milvus.bat"
+if errorlevel 1 (
+  echo [start] WARNING: Milvus is not available. The backend may fail to connect to the vector store.
+  echo [start]          If you do not use Milvus, set VECTOR_STORE_BACKEND=local in .env.
+)
+
 set "STARTED_SERVICE=0"
 
 set "CHECK_PORT=%BACKEND_PORT%"

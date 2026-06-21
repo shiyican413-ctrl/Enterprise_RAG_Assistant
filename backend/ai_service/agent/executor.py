@@ -1,5 +1,6 @@
 import asyncio
 import queue as _queue_mod
+import time
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import Any
@@ -9,6 +10,11 @@ from backend.ai_service.agent.react_agent import (
     AgentStep,
     AgentTool,
     ReActAgent,
+)
+from backend.ai_service.core.config import (
+    AGENT_MAX_STEPS,
+    AGENT_RETRY_ATTEMPTS,
+    AGENT_TOTAL_TIMEOUT_SECONDS,
 )
 from backend.ai_service.llm.chat_client import AnswerMode, DoubaoChatClient
 from backend.ai_service.agent.planner import Plan
@@ -59,17 +65,50 @@ class ExecutionResult:
     agent_steps: list[dict[str, Any]] = field(default_factory=list)
 
 
+@dataclass(frozen=True)
+class RuntimeConfig:
+    """Deterministic Runtime knobs — owned by code, never by the LLM.
+
+    Mirrors docs/agent改进.md §4: the Workflow/Runtime/Executor layer must
+    control step budget, timeout, allowed tools and retries. Defaults come from
+    environment-configured constants so behavior is identical to before unless
+    an operator opts in.
+    """
+
+    max_steps: int = AGENT_MAX_STEPS
+    total_timeout_seconds: float = AGENT_TOTAL_TIMEOUT_SECONDS
+    retry_attempts: int = AGENT_RETRY_ATTEMPTS
+    # None means "all registered tools" (backward compatible). A tuple narrows
+    # what the ReAct agent is allowed to call — the "allowed_tools" control.
+    allowed_tools: tuple[str, ...] | None = None
+
+
+def _empty_agent_run() -> AgentRun:
+    return AgentRun(answer="", sources=[], model=None, steps=[], raw_results=[])
+
+
 class ExecutorService:
+    """The Runtime layer.
+
+    Despite the legacy name, this is the deterministic execution中枢 described
+    in docs/agent改进.md §4: it owns step budget, timeout, allowed tools and
+    retries — the things that must stay "稳" and never be delegated to the LLM.
+    The LLM-driven reasoning lives in ``ReActAgent``; this class orchestrates
+    and constrains it.
+    """
+
     def __init__(
         self,
         *,
         tool_registry: ToolRegistry,
         chat_client: DoubaoChatClient,
         trace_service: TraceService | None = None,
+        runtime_config: RuntimeConfig | None = None,
     ) -> None:
         self.tool_registry = tool_registry
         self.chat_client = chat_client
         self.trace_service = trace_service or TraceService()
+        self.runtime_config = runtime_config or RuntimeConfig()
 
     def execute(
         self,
@@ -252,6 +291,26 @@ class ExecutorService:
             "model": model,
         }
 
+    def _build_agent_tools(self, tool_context: ToolContext) -> list[AgentTool]:
+        """Wrap registered tools as AgentTool, narrowed to allowed_tools."""
+        descriptions = self.tool_registry.descriptions()
+        allowed = self.runtime_config.allowed_tools
+        if allowed is not None:
+            allowed_set = set(allowed)
+            descriptions = [d for d in descriptions if d["name"] in allowed_set]
+        return [
+            AgentTool(
+                name=tool["name"],
+                description=tool["description"],
+                run=lambda payload, name=tool["name"]: self.tool_registry.run(
+                    name,
+                    payload,
+                    tool_context,
+                ),
+            )
+            for tool in descriptions
+        ]
+
     def _run_agent(
         self,
         *,
@@ -261,24 +320,27 @@ class ExecutorService:
         trace: TraceContext,
         evidence: list[SearchResult] | None = None,
     ) -> AgentRun:
-        tools = [
-            AgentTool(
-                name=tool["name"],
-                description=tool["description"],
-                run=lambda payload, name=tool["name"]: self.tool_registry.run(
-                    name,
-                    payload,
-                    tool_context,
-                ),
-            )
-            for tool in self.tool_registry.descriptions()
-        ]
-        agent = ReActAgent(chat_client=self.chat_client, tools=tools)
-        try:
-            with traced_step(self.trace_service, trace, "agent.answer"):
-                return agent.run(question=question, answer_mode=answer_mode, evidence=evidence)
-        except Exception:
-            return AgentRun(answer="", sources=[], model=None, steps=[], raw_results=[])
+        rc = self.runtime_config
+        agent = ReActAgent(
+            chat_client=self.chat_client,
+            tools=self._build_agent_tools(tool_context),
+            max_steps=rc.max_steps,
+        )
+        deadline = time.perf_counter() + rc.total_timeout_seconds
+        attempts = rc.retry_attempts + 1
+        with traced_step(self.trace_service, trace, "agent.answer"):
+            for attempt in range(attempts):
+                try:
+                    return agent.run(
+                        question=question,
+                        answer_mode=answer_mode,
+                        evidence=evidence,
+                        deadline=deadline,
+                    )
+                except Exception:
+                    if attempt == attempts - 1:
+                        return _empty_agent_run()
+        return _empty_agent_run()
 
     def _run_agent_stream(
         self,
@@ -288,20 +350,19 @@ class ExecutorService:
         tool_context: ToolContext,
         evidence: list[SearchResult] | None = None,
     ):
-        tools = [
-            AgentTool(
-                name=tool["name"],
-                description=tool["description"],
-                run=lambda payload, name=tool["name"]: self.tool_registry.run(
-                    name,
-                    payload,
-                    tool_context,
-                ),
-            )
-            for tool in self.tool_registry.descriptions()
-        ]
-        agent = ReActAgent(chat_client=self.chat_client, tools=tools)
-        yield from agent.run_stream(question=question, answer_mode=answer_mode, evidence=evidence)
+        rc = self.runtime_config
+        agent = ReActAgent(
+            chat_client=self.chat_client,
+            tools=self._build_agent_tools(tool_context),
+            max_steps=rc.max_steps,
+        )
+        deadline = time.perf_counter() + rc.total_timeout_seconds
+        yield from agent.run_stream(
+            question=question,
+            answer_mode=answer_mode,
+            evidence=evidence,
+            deadline=deadline,
+        )
 
     def build_answer(
         self,

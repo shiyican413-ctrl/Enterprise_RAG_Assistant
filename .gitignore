@@ -17,3 +17,6 @@ data/knowledge_base/*
 .run-logs/
 .understand-anything/
 *.tsbuildinfo
+
+# Milvus standalone data volumes
+docker/milvus/volumes/

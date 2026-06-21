@@ -75,3 +75,10 @@ DOUBAO_THINKING_MODEL = os.getenv(
     "doubao-seed-2-0-lite-260428",
 )
 CHAT_TIMEOUT_SECONDS = float(os.getenv("CHAT_TIMEOUT_SECONDS", "60"))
+
+# --- Agent Runtime controls ---------------------------------------------------
+# Deterministic knobs owned by the Runtime layer (ExecutorService), never by the
+# LLM. See docs/agent改进.md §4: "代码负责：执行、限制、校验、记录、重试".
+AGENT_MAX_STEPS = int(os.getenv("AGENT_MAX_STEPS", "4"))
+AGENT_TOTAL_TIMEOUT_SECONDS = float(os.getenv("AGENT_TOTAL_TIMEOUT_SECONDS", "120"))
+AGENT_RETRY_ATTEMPTS = int(os.getenv("AGENT_RETRY_ATTEMPTS", "0"))
