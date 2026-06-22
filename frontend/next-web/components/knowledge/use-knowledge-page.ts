@@ -42,26 +42,38 @@ export function useKnowledgePage() {
 
   useEffect(() => {
     let cancelled = false;
-    let timer: ReturnType<typeof setInterval> | undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined;
 
     async function check() {
-      const healthy = await checkHealth();
-      if (cancelled) return;
-      if (healthy) {
-        setIsHealthy(true);
-        const docs = await fetchDocuments();
-        if (!cancelled) {
+      try {
+        const healthy = await checkHealth();
+        if (cancelled) return;
+
+        setIsHealthy(healthy);
+        if (healthy) {
+          const docs = await fetchDocuments();
+          if (cancelled) return;
           setDocuments(docs);
           setNotice(undefined);
+        } else {
+          timer = setTimeout(check, 5000);
         }
-      } else {
-        setIsHealthy(false);
-        timer = setInterval(check, 5000);
+      } catch (error) {
+        if (cancelled) return;
+        setNotice({
+          tone: "error",
+          text: error instanceof Error ? error.message : "知识库数据加载失败",
+        });
+      } finally {
+        if (!cancelled) setIsLoading(false);
       }
     }
 
     void check();
-    return () => { cancelled = true; clearInterval(timer); };
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, []);
 
   useEffect(() => {
