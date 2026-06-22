@@ -5,14 +5,20 @@ from pathlib import Path
 from fastapi import UploadFile
 
 from backend.ai_service.core.config import CHUNK_OVERLAP, CHUNK_SIZE, SUPPORTED_EXTENSIONS, UPLOAD_DIR
+from backend.ai_service.knowledge.ingest_quality_service import IngestQualityService
 from backend.ai_service.knowledge.loaders.document_loader import load_document_text
 from backend.ai_service.storage.factory import create_vector_store
 from backend.ai_service.knowledge.splitter import split_text
 
 
 class KnowledgeService:
-    def __init__(self, vector_store=None) -> None:
+    def __init__(
+        self,
+        vector_store=None,
+        quality_service: IngestQualityService | None = None,
+    ) -> None:
         self.vector_store = vector_store or create_vector_store()
+        self.quality_service = quality_service or IngestQualityService()
         UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
     async def ingest_upload(self, file: UploadFile) -> dict:
@@ -35,10 +41,15 @@ class KnowledgeService:
     ) -> dict:
         text = load_document_text(path)
         chunks = split_text(text, chunk_size=CHUNK_SIZE, overlap=CHUNK_OVERLAP)
+        embedding_client = getattr(self.vector_store, "embedding_client", None)
+        quality_report = self.quality_service.inspect_chunks(
+            chunks,
+            embedding_ready=bool(getattr(embedding_client, "enabled", False)),
+        )
         document_name = original_name or path.name
         document_id, chunk_count = self.vector_store.add_document(
             document_name=document_name,
-            chunks=[chunk.text for chunk in chunks],
+            chunks=chunks,
             metadata={
                 "source_path": str(path),
                 "file_md5": file_md5 or _file_md5(path),
@@ -50,6 +61,7 @@ class KnowledgeService:
             "document_id": document_id,
             "document_name": document_name,
             "chunk_count": chunk_count,
+            "quality_report": quality_report.to_dict(),
         }
 
     def ingest_directory(self, directory: Path) -> list[dict]:

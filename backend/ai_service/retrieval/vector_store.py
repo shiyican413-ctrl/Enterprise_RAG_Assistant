@@ -6,7 +6,7 @@ from collections import Counter
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable
 
 from backend.ai_service.core.config import (
     EMBEDDING_DIMENSIONS,
@@ -43,6 +43,12 @@ class SearchResult:
     score: float
 
 
+@dataclass(frozen=True)
+class _PreparedChunk:
+    content: str
+    metadata: dict
+
+
 class LocalVectorStore:
     """Small persistent vector store with Bailian dense embeddings and sparse fallback."""
 
@@ -66,9 +72,8 @@ class LocalVectorStore:
     ) -> tuple[str, int]:
         document_id = str(uuid.uuid4())
         now = datetime.now(UTC).isoformat()
-        base_metadata = metadata or {}
-
-        contents = [content for content in chunks if content.strip()]
+        prepared_chunks = _prepare_chunks(chunks, metadata)
+        contents = [chunk.content for chunk in prepared_chunks]
         embeddings = self._embed_contents(contents)
 
         new_chunks = [
@@ -77,13 +82,13 @@ class LocalVectorStore:
                 document_id=document_id,
                 document_name=document_name,
                 chunk_index=index,
-                content=content,
-                metadata=base_metadata,
+                content=chunk.content,
+                metadata=chunk.metadata,
                 created_at=now,
                 embedding=embeddings[index] if embeddings else None,
                 embedding_model=self.embedding_client.model if embeddings else None,
             )
-            for index, content in enumerate(contents)
+            for index, chunk in enumerate(prepared_chunks)
         ]
 
         self._chunks.extend(new_chunks)
@@ -267,28 +272,27 @@ class MilvusVectorStore:
         chunks: Iterable[str],
         metadata: dict | None = None,
     ) -> tuple[str, int]:
-        contents = [content for content in chunks if content.strip()]
-        if not contents:
+        prepared_chunks = _prepare_chunks(chunks, metadata)
+        contents = [chunk.content for chunk in prepared_chunks]
+        if not prepared_chunks:
             return str(uuid.uuid4()), 0
 
         embeddings = self._embed_contents(contents)
         document_id = str(uuid.uuid4())
         now = datetime.now(UTC).isoformat()
-        base_metadata = metadata or {}
-        metadata_json = _json(base_metadata)
         rows = [
             {
                 "id": str(uuid.uuid4()),
                 "document_id": document_id,
                 "document_name": document_name,
                 "chunk_index": index,
-                "content": content,
-                "metadata_json": metadata_json,
+                "content": chunk.content,
+                "metadata_json": _json(chunk.metadata),
                 "created_at": now,
                 "embedding": embeddings[index],
                 "embedding_model": self.embedding_client.model,
             }
-            for index, content in enumerate(contents)
+            for index, chunk in enumerate(prepared_chunks)
         ]
 
         self.collection.insert(rows)
@@ -456,6 +460,33 @@ class MilvusVectorStore:
 
 def _json(value: dict) -> str:
     return json.dumps(value, ensure_ascii=False)
+
+
+def _prepare_chunks(
+    chunks: Iterable[Any],
+    base_metadata: dict | None = None,
+) -> list[_PreparedChunk]:
+    prepared: list[_PreparedChunk] = []
+    document_metadata = dict(base_metadata or {})
+    for item in chunks:
+        if isinstance(item, str):
+            content = item
+            chunk_metadata: dict = {}
+        else:
+            content = str(getattr(item, "text", getattr(item, "content", "")) or "")
+            raw_metadata = getattr(item, "metadata", {}) or {}
+            chunk_metadata = raw_metadata if isinstance(raw_metadata, dict) else {}
+
+        content = content.strip()
+        if not content:
+            continue
+        prepared.append(
+            _PreparedChunk(
+                content=content,
+                metadata={**document_metadata, **chunk_metadata},
+            )
+        )
+    return prepared
 
 
 def _chunk_from_milvus_row(row: dict) -> DocumentChunk:

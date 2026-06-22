@@ -38,6 +38,7 @@ def _load_pdf(path: Path) -> str:
 
     reader = PdfReader(str(path))
     pages: list[str] = []
-    for page in reader.pages:
-        pages.append(page.extract_text() or "")
+    for index, page in enumerate(reader.pages, start=1):
+        page_text = page.extract_text() or ""
+        pages.append(f"[[page:{index}]]\n{page_text}")
     return "\n\n".join(pages).strip()
