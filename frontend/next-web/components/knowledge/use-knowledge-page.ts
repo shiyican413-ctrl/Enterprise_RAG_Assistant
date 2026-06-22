@@ -41,7 +41,27 @@ export function useKnowledgePage() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    void refreshKnowledge();
+    let cancelled = false;
+    let timer: ReturnType<typeof setInterval> | undefined;
+
+    async function check() {
+      const healthy = await checkHealth();
+      if (cancelled) return;
+      if (healthy) {
+        setIsHealthy(true);
+        const docs = await fetchDocuments();
+        if (!cancelled) {
+          setDocuments(docs);
+          setNotice(undefined);
+        }
+      } else {
+        setIsHealthy(false);
+        timer = setInterval(check, 5000);
+      }
+    }
+
+    void check();
+    return () => { cancelled = true; clearInterval(timer); };
   }, []);
 
   useEffect(() => {

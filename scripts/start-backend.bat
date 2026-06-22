@@ -3,7 +3,7 @@ setlocal EnableExtensions
 set "BACKEND_EXIT_CODE=0"
 
 set "BACKEND_PORT=%~1"
-if "%BACKEND_PORT%"=="" set "BACKEND_PORT=8000"
+if "%BACKEND_PORT%"=="" set "BACKEND_PORT=8001"
 
 cd /d "%~dp0.."
 set "PYTHONPATH=%CD%"

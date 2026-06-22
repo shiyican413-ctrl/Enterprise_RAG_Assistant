@@ -43,7 +43,7 @@ export function ConsoleTransition() {
     const delay = prefersReducedMotion ? 120 : 2000;
 
     timeoutRef.current = window.setTimeout(() => {
-      router.push("/");
+      router.push("/console");
     }, delay);
   }, [router]);
 
@@ -59,7 +59,7 @@ export function ConsoleTransition() {
       if (!link || link.target) return;
 
       const url = new URL(link.href, window.location.href);
-      if (url.origin !== window.location.origin || url.pathname !== "/" || url.hash) return;
+      if (url.origin !== window.location.origin || url.pathname !== "/console" || url.hash) return;
 
       event.preventDefault();
       startConsoleTransition();

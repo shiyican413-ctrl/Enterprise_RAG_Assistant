@@ -10,7 +10,7 @@ cd /d "%~dp0.."
 if not "%~1"=="" set "BACKEND_PORT=%~1"
 if not "%~2"=="" set "FRONTEND_PORT=%~2"
 
-if not defined BACKEND_PORT set "BACKEND_PORT=8000"
+if not defined BACKEND_PORT set "BACKEND_PORT=8001"
 if not defined FRONTEND_PORT set "FRONTEND_PORT=3001"
 set "APP_HOST=127.0.0.1"
 

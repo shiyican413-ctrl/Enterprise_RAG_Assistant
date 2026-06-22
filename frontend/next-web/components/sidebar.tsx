@@ -20,7 +20,7 @@ type SidebarProps = {
 };
 
 const navItems = [
-  { label: "智能问答", href: "/", icon: FileSearch },
+  { label: "智能问答", href: "/console", icon: FileSearch },
   { label: "知识库", href: "/knowledge", icon: Database },
   { label: "会话记录", href: "/conversations", icon: FileClock, disabled: true },
   { label: "权限审计", href: "/audit", icon: ShieldCheck, disabled: true },
@@ -64,7 +64,7 @@ export function Sidebar({ isHealthy }: SidebarProps) {
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive =
-              item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+              item.href === "/console" ? pathname === "/console" : pathname.startsWith(item.href);
             const className = cn(
               "flex h-11 items-center gap-3 rounded-[10px] px-4 text-[16px] font-medium text-[var(--side-fg)] transition-colors hover:bg-[var(--side-hover)]",
               isActive && "bg-[var(--side-active-bg)] font-semibold ring-2 ring-[var(--side-active-ring)]",

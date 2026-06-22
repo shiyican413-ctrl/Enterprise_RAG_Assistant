@@ -5,7 +5,7 @@ set "FRONTEND_EXIT_CODE=0"
 set "BACKEND_PORT=%~1"
 set "FRONTEND_PORT=%~2"
 
-if "%BACKEND_PORT%"=="" set "BACKEND_PORT=8000"
+if "%BACKEND_PORT%"=="" set "BACKEND_PORT=8001"
 if "%FRONTEND_PORT%"=="" set "FRONTEND_PORT=3001"
 
 cd /d "%~dp0..\frontend\next-web"

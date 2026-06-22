@@ -5,7 +5,7 @@ import { useState, type FormEvent } from "react";
 
 /**
  * Hero search entry. Decorative-looking but functional: submitting navigates
- * to the console (`/`), where the user can continue the conversation.
+ * to the console (`/console`), where the user can continue the conversation.
  */
 export function HeroEntry() {
   const router = useRouter();
@@ -19,7 +19,7 @@ export function HeroEntry() {
 
     window.dispatchEvent(transitionEvent);
     if (!transitionEvent.defaultPrevented) {
-      router.push("/");
+      router.push("/console");
     }
   }
 
