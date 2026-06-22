@@ -62,13 +62,13 @@ export function ChatPanel({
     {
       mode: "fast" as const,
       label: "快速模式",
-      model: "doubao-seed-2-0-lite-260428",
+      model: "qwen3.5-flash",
       icon: Zap,
     },
     {
       mode: "thinking" as const,
       label: "思考模式",
-      model: "doubao-seed-2-0-lite-260428",
+      model: "qwen3.7-plus",
       icon: Brain,
     },
   ];

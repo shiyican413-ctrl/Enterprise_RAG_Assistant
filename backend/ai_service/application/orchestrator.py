@@ -1,7 +1,7 @@
 from collections.abc import AsyncIterator
 
 from backend.ai_service.core.config import TOP_K
-from backend.ai_service.llm.chat_client import AnswerMode, DoubaoChatClient
+from backend.ai_service.llm.chat_client import AnswerMode, BailianChatClient
 from backend.ai_service.agent.executor import ExecutorService
 from backend.ai_service.agent.guardrails import GuardrailService
 from backend.ai_service.storage.history import HistoryService, PostgresHistoryService
@@ -20,7 +20,7 @@ class OrchestratorService:
         *,
         vector_store=None,
         history_service: HistoryService | None = None,
-        chat_client: DoubaoChatClient | None = None,
+        chat_client: BailianChatClient | None = None,
         planner: PlannerService | None = None,
         executor: ExecutorService | None = None,
         memory: MemoryService | None = None,
@@ -31,7 +31,7 @@ class OrchestratorService:
     ) -> None:
         self.vector_store = vector_store or create_vector_store()
         self.history_service = history_service or PostgresHistoryService()
-        self.chat_client = chat_client or DoubaoChatClient()
+        self.chat_client = chat_client or BailianChatClient()
         self.trace_service = trace_service or TraceService()
         self.memory = memory or MemoryService(history_service=self.history_service)
         self.planner = planner or PlannerService(chat_client=self.chat_client)

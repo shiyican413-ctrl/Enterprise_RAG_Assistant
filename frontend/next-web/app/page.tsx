@@ -39,7 +39,7 @@ const CAPABILITIES: Capability[] = [
   {
     index: "04",
     title: "快速 / 思考双模式",
-    desc: "默认接入火山方舟 Doubao，兼顾响应速度与推理深度，一键切换回答模式。",
+    desc: "统一接入阿里云百炼，快速与思考模式按问题复杂度一键切换。",
   },
   {
     index: "05",
@@ -91,7 +91,7 @@ const STACK_TAGS = [
   "Milvus",
   "PostgreSQL",
   "百炼 text-embedding-v4",
-  "火山方舟 Doubao",
+  "阿里云百炼 Qwen",
   "SSE",
   "ReAct Agent",
 ];

@@ -16,6 +16,7 @@ data/knowledge_base/*
 # Local run / tooling artifacts
 .run-logs/
 .understand-anything/
+.firecrawl/
 *.tsbuildinfo
 
 # Milvus standalone data volumes

@@ -36,7 +36,7 @@
 - 语义检索：配置 `DASHSCOPE_API_KEY` 后使用阿里云百炼 `text-embedding-v4` 生成 dense embedding，并写入 Milvus。
 - 降级检索：设置 `VECTOR_STORE_BACKEND=local` 时保留本地稀疏检索和模板回答能力，便于离线开发和链路验证。
 - 智能问答：支持普通问答接口和 SSE 流式问答接口，返回回答正文、引用来源、会话 ID、回答模式和模型信息。
-- 双回答模式：快速模式和思考模式默认使用火山方舟豆包 `doubao-seed-2-0-lite-260428`。
+- 双回答模式：快速模式使用阿里云百炼 `qwen3.5-flash`，思考模式使用 `qwen3.7-plus`。
 - 会话记录：问答历史写入 PostgreSQL，可按 `conversation_id` 查询。
 - 知识库管理：前端已提供文档列表、搜索筛选、片段查看、删除文档、上传文档和重建索引入口。
 
@@ -82,12 +82,12 @@ MILVUS_URI=http://127.0.0.1:19530
 MILVUS_COLLECTION=enterprise_rag_chunks
 DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/enterprise_rag
 
-ARK_API_KEY=your-volcengine-ark-api-key
-ARK_CHAT_URL=https://ark.cn-beijing.volces.com/api/v3/chat/completions
-DOUBAO_FAST_MODEL=doubao-seed-2-0-lite-260428
-DOUBAO_THINKING_MODEL=doubao-seed-2-0-lite-260428
-
 DASHSCOPE_API_KEY=your-dashscope-api-key
+BAILIAN_CHAT_URL=https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions
+BAILIAN_FAST_MODEL=qwen3.5-flash
+BAILIAN_THINKING_MODEL=qwen3.7-plus
+BAILIAN_THINKING_BUDGET=8192
+BAILIAN_RERANK_MODEL=qwen3-rerank
 BAILIAN_EMBEDDING_URL=https://dashscope.aliyuncs.com/compatible-mode/v1/embeddings
 BAILIAN_EMBEDDING_MODEL=text-embedding-v4
 EMBEDDING_DIMENSIONS=2048

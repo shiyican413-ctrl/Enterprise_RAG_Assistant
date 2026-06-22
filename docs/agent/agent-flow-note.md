@@ -26,7 +26,7 @@
 ```
 
 **核心技术栈**：
-- **LLM**: 火山引擎豆包 (doubao-seed-2-0-lite-260428) — 通过 Volcengine ARK API 调用
+- **LLM**: 阿里云百炼（快速 `qwen3.5-flash` / 思考 `qwen3.7-plus`）— 通过 OpenAI 兼容 API 调用
 - **Embedding**: 通义千问 DashScope (text-embedding-v4, 2048维)
 - **向量存储**: Milvus (COSINE 向量相似度检索)
 - **对话历史**: PostgreSQL (`chat_turns` 表)
@@ -41,7 +41,7 @@
 OrchestratorService
   ├── MilvusVectorStore            # 向量存储 (Milvus)
   ├── PostgresHistoryService       # 对话历史存储
-  ├── DoubaoChatClient             # LLM 客户端 (豆包)
+  ├── BailianChatClient            # LLM 客户端（阿里云百炼）
   ├── TraceService                 # 全链路追踪
   ├── MemoryService                # 会话记忆 (包装 HistoryService)
   ├── PlannerService               # 规划层 (包装 ChatClient)
@@ -313,7 +313,7 @@ search_result = ToolRegistry.run("knowledge_search", {"query": question}, tool_c
 → answer_delta: { content: "制度规定..." }
 → route_step: { step: "model.answer", status: "ok", duration_ms: 1850.2 }
 → phase: { layer: "answer", status: "done", label: "命令层 · 生成最终回答" }
-→ executor_result: { answer: "完整答案...", sources: [...], model: "doubao-..." }
+→ executor_result: { answer: "完整答案...", sources: [...], model: "qwen3.7-plus" }
 ```
 
 ---
@@ -466,7 +466,7 @@ TraceStep:
 1502ms   executor_result        {answer:"完整答案...", sources:[...]}
 1505ms   route_step             memory.append_turn {ok, 3.2ms}
 1506ms   sources                [{document_name:"人事制度.docx", snippet:"...", score:0.92}]
-1506ms   done                   {conversation_id:"uuid", trace_id:"uuid", model:"doubao-..."}
+1506ms   done                   {conversation_id:"uuid", trace_id:"uuid", model:"qwen3.7-plus"}
 ```
 
 ---

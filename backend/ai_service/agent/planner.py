@@ -2,7 +2,7 @@ import json
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from backend.ai_service.llm.chat_client import AnswerMode, DoubaoChatClient
+from backend.ai_service.llm.chat_client import AnswerMode, BailianChatClient
 
 
 PlanStepType = Literal["agent_answer", "knowledge_search", "answer_generation"]
@@ -29,7 +29,7 @@ class PlannerService:
     def __init__(
         self,
         *,
-        chat_client: DoubaoChatClient | None = None,
+        chat_client: BailianChatClient | None = None,
         enable_llm_planning: bool = True,
     ) -> None:
         self.chat_client = chat_client

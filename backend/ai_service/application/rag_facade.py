@@ -1,7 +1,7 @@
 from collections.abc import AsyncIterator
 
 from backend.ai_service.core.config import TOP_K
-from backend.ai_service.llm.chat_client import AnswerMode, DoubaoChatClient
+from backend.ai_service.llm.chat_client import AnswerMode, BailianChatClient
 from backend.ai_service.storage.history import HistoryService
 from backend.ai_service.application.orchestrator import OrchestratorService
 
@@ -13,7 +13,7 @@ class RAGService:
         self,
         vector_store=None,
         history_service: HistoryService | None = None,
-        chat_client: DoubaoChatClient | None = None,
+        chat_client: BailianChatClient | None = None,
         orchestrator: OrchestratorService | None = None,
     ) -> None:
         self.orchestrator = orchestrator or OrchestratorService(

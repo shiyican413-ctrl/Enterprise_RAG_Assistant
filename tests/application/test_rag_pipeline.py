@@ -22,7 +22,7 @@ def test_rag_answer_mode_uses_selected_chat_model() -> None:
                 return ChatModelResponse(
                     content='{"needs_knowledge":true,"reason":"Policy question."}',
                     reasoning_content="",
-                    model="doubao-seed-2-0-lite-260428",
+                    model="qwen3.5-flash",
                 )
             return ChatModelResponse(
                 content=(
@@ -30,7 +30,7 @@ def test_rag_answer_mode_uses_selected_chat_model() -> None:
                     '"answer":"Reimbursements are paid within three business days after approval. [1]"}'
                 ),
                 reasoning_content="",
-                model="doubao-seed-2-0-lite-260428",
+                model="qwen3.5-flash",
             )
 
     with TemporaryDirectory() as directory:
@@ -51,7 +51,7 @@ def test_rag_answer_mode_uses_selected_chat_model() -> None:
         payload = service.ask("When are reimbursements paid?", answer_mode="thinking")
 
     assert payload["answer_mode"] == "thinking"
-    assert payload["model"] == "doubao-seed-2-0-lite-260428"
+    assert payload["model"] == "qwen3.5-flash"
     assert "three business days" in payload["answer"]
     assert payload["trace_id"]
     assert any(step["step"] == "agent.answer" for step in payload["route"])
@@ -184,7 +184,7 @@ def test_rag_stream_ask_emits_deltas_and_done() -> None:
                 return ChatModelResponse(
                     content='{"needs_knowledge":true,"reason":"Policy question."}',
                     reasoning_content="",
-                    model="doubao-seed-2-0-lite-260428",
+                    model="qwen3.7-plus",
                 )
             if "ReAct agent" in messages[0]["content"]:
                 return ChatModelResponse(
@@ -193,14 +193,14 @@ def test_rag_stream_ask_emits_deltas_and_done() -> None:
                         '"answer":"Reimbursements are paid within three business days after finance approval. [1]"}'
                     ),
                     reasoning_content="",
-                    model="doubao-seed-2-0-lite-260428",
+                    model="qwen3.7-plus",
                 )
             raise AssertionError("Unexpected complete call for streaming test")
 
         async def stream_complete(self, messages, mode, temperature=0.2):
             assert mode == "fast"
-            yield ChatModelDelta(content="Three ", model="doubao-seed-2-0-lite-260428")
-            yield ChatModelDelta(content="business days. [1]", model="doubao-seed-2-0-lite-260428")
+            yield ChatModelDelta(content="Three ", model="qwen3.7-plus")
+            yield ChatModelDelta(content="business days. [1]", model="qwen3.7-plus")
 
     async def collect_events(service: RAGService) -> list[dict]:
         return [
@@ -235,7 +235,7 @@ def test_rag_stream_ask_emits_deltas_and_done() -> None:
     assert types.count("answer_delta") >= 2
     assert events[-2]["type"] == "sources"
     assert events[-1]["type"] == "done"
-    assert events[-1]["model"] == "doubao-seed-2-0-lite-260428"
+    assert events[-1]["model"] == "qwen3.7-plus"
     assert events[-1]["trace_id"]
     assert any(step["step"] == "tool.knowledge_search" for step in events[-1]["route"])
     plan_event = next(event for event in events if event["type"] == "plan")

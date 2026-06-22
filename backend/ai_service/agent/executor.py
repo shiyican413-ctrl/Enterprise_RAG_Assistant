@@ -16,7 +16,7 @@ from backend.ai_service.core.config import (
     AGENT_RETRY_ATTEMPTS,
     AGENT_TOTAL_TIMEOUT_SECONDS,
 )
-from backend.ai_service.llm.chat_client import AnswerMode, DoubaoChatClient
+from backend.ai_service.llm.chat_client import AnswerMode, BailianChatClient
 from backend.ai_service.agent.planner import Plan
 from backend.ai_service.observability.tracing import TraceContext, TraceService, traced_step
 from backend.ai_service.retrieval.vector_store import SearchResult
@@ -101,7 +101,7 @@ class ExecutorService:
         self,
         *,
         tool_registry: ToolRegistry,
-        chat_client: DoubaoChatClient,
+        chat_client: BailianChatClient,
         trace_service: TraceService | None = None,
         runtime_config: RuntimeConfig | None = None,
     ) -> None:

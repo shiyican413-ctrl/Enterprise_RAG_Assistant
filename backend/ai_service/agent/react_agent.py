@@ -4,7 +4,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Literal
 
-from backend.ai_service.llm.chat_client import AnswerMode, DoubaoChatClient
+from backend.ai_service.llm.chat_client import AnswerMode, BailianChatClient
 from backend.ai_service.retrieval.vector_store import SearchResult
 
 
@@ -47,7 +47,7 @@ class ReActAgent:
 
     def __init__(
         self,
-        chat_client: DoubaoChatClient,
+        chat_client: BailianChatClient,
         tools: Sequence[AgentTool],
         max_steps: int = 4,
     ) -> None:

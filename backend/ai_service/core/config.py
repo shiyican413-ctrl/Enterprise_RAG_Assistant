@@ -60,20 +60,14 @@ EMBEDDING_DIMENSIONS = int(os.getenv("EMBEDDING_DIMENSIONS", "2048"))
 EMBEDDING_BATCH_SIZE = int(os.getenv("EMBEDDING_BATCH_SIZE", "10"))
 EMBEDDING_TIMEOUT_SECONDS = float(os.getenv("EMBEDDING_TIMEOUT_SECONDS", "30"))
 
-ARK_API_KEY = (
-    os.getenv("ARK_API_KEY")
-    or os.getenv("DOUBAO_API_KEY")
-    or ""
-).strip()
-ARK_CHAT_URL = os.getenv(
-    "ARK_CHAT_URL",
-    "https://ark.cn-beijing.volces.com/api/v3/chat/completions",
+BAILIAN_CHAT_URL = os.getenv(
+    "BAILIAN_CHAT_URL",
+    "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
 )
-DOUBAO_FAST_MODEL = os.getenv("DOUBAO_FAST_MODEL", "doubao-seed-2-0-lite-260428")
-DOUBAO_THINKING_MODEL = os.getenv(
-    "DOUBAO_THINKING_MODEL",
-    "doubao-seed-2-0-lite-260428",
-)
+BAILIAN_FAST_MODEL = os.getenv("BAILIAN_FAST_MODEL", "qwen3.5-flash")
+BAILIAN_THINKING_MODEL = os.getenv("BAILIAN_THINKING_MODEL", "qwen3.7-plus")
+BAILIAN_THINKING_BUDGET = int(os.getenv("BAILIAN_THINKING_BUDGET", "8192"))
+BAILIAN_RERANK_MODEL = os.getenv("BAILIAN_RERANK_MODEL", "qwen3-rerank")
 CHAT_TIMEOUT_SECONDS = float(os.getenv("CHAT_TIMEOUT_SECONDS", "60"))
 
 # --- Agent Runtime controls ---------------------------------------------------

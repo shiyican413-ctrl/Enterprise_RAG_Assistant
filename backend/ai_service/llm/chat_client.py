@@ -6,11 +6,12 @@ from typing import Literal
 import httpx
 
 from backend.ai_service.core.config import (
-    ARK_API_KEY,
-    ARK_CHAT_URL,
+    BAILIAN_CHAT_URL,
+    BAILIAN_FAST_MODEL,
+    BAILIAN_THINKING_BUDGET,
+    BAILIAN_THINKING_MODEL,
     CHAT_TIMEOUT_SECONDS,
-    DOUBAO_FAST_MODEL,
-    DOUBAO_THINKING_MODEL,
+    DASHSCOPE_API_KEY,
 )
 
 
@@ -30,19 +31,21 @@ class ChatModelDelta:
     model: str
 
 
-class DoubaoChatClient:
+class BailianChatClient:
     def __init__(
         self,
-        api_key: str = ARK_API_KEY,
-        url: str = ARK_CHAT_URL,
-        fast_model: str = DOUBAO_FAST_MODEL,
-        thinking_model: str = DOUBAO_THINKING_MODEL,
+        api_key: str = DASHSCOPE_API_KEY,
+        url: str = BAILIAN_CHAT_URL,
+        fast_model: str = BAILIAN_FAST_MODEL,
+        thinking_model: str = BAILIAN_THINKING_MODEL,
+        thinking_budget: int = BAILIAN_THINKING_BUDGET,
         timeout_seconds: float = CHAT_TIMEOUT_SECONDS,
     ) -> None:
         self.api_key = api_key
         self.url = url
         self.fast_model = fast_model
         self.thinking_model = thinking_model
+        self.thinking_budget = thinking_budget
         self.timeout_seconds = timeout_seconds
 
     @property
@@ -61,7 +64,7 @@ class DoubaoChatClient:
         temperature: float = 0.2,
     ) -> ChatModelResponse:
         if not self.enabled:
-            raise RuntimeError("ARK_API_KEY is not configured")
+            raise RuntimeError("DASHSCOPE_API_KEY is not configured")
 
         model = self.model_for_mode(mode)
         payload = {
@@ -69,7 +72,10 @@ class DoubaoChatClient:
             "messages": list(messages),
             "temperature": temperature,
             "stream": False,
+            "enable_thinking": mode == "thinking",
         }
+        if mode == "thinking":
+            payload["thinking_budget"] = self.thinking_budget
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -82,13 +88,13 @@ class DoubaoChatClient:
         body = response.json()
         choices = body.get("choices") or []
         if not choices:
-            raise RuntimeError("Invalid chat response from Doubao")
+            raise RuntimeError("Invalid chat response from Bailian")
 
         message = choices[0].get("message") or {}
         content = _normalize_text(message.get("content"))
         reasoning_content = _normalize_text(message.get("reasoning_content"))
         if not content:
-            raise RuntimeError("Empty chat response from Doubao")
+            raise RuntimeError("Empty chat response from Bailian")
 
         return ChatModelResponse(
             content=content,
@@ -103,7 +109,7 @@ class DoubaoChatClient:
         temperature: float = 0.2,
     ) -> AsyncIterator[ChatModelDelta]:
         if not self.enabled:
-            raise RuntimeError("ARK_API_KEY is not configured")
+            raise RuntimeError("DASHSCOPE_API_KEY is not configured")
 
         model = self.model_for_mode(mode)
         payload = {
@@ -111,7 +117,10 @@ class DoubaoChatClient:
             "messages": list(messages),
             "temperature": temperature,
             "stream": True,
+            "enable_thinking": mode == "thinking",
         }
+        if mode == "thinking":
+            payload["thinking_budget"] = self.thinking_budget
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -198,6 +207,3 @@ def _strip_model_markers(text: str) -> str:
     for marker in markers:
         text = text.replace(marker, "")
     return text.strip()
-
-
-GLMChatClient = DoubaoChatClient
