@@ -59,6 +59,8 @@ class OrchestratorService:
         conversation_id: str | None = None,
         top_k: int = TOP_K,
         answer_mode: AnswerMode = "fast",
+        user_id: str | None = None,
+        tenant_id: str | None = None,
     ) -> dict:
         trace = self.trace_service.start_trace()
         return self.workflow.run_chat(
@@ -67,6 +69,8 @@ class OrchestratorService:
             conversation_id=conversation_id,
             top_k=top_k,
             answer_mode=answer_mode,
+            user_id=user_id,
+            tenant_id=tenant_id,
         )
 
     async def stream_chat(
@@ -76,6 +80,8 @@ class OrchestratorService:
         conversation_id: str | None = None,
         top_k: int = TOP_K,
         answer_mode: AnswerMode = "fast",
+        user_id: str | None = None,
+        tenant_id: str | None = None,
     ) -> AsyncIterator[dict]:
         trace = self.trace_service.start_trace()
         async for event in self.workflow.stream_chat(
@@ -84,5 +90,7 @@ class OrchestratorService:
             conversation_id=conversation_id,
             top_k=top_k,
             answer_mode=answer_mode,
+            user_id=user_id,
+            tenant_id=tenant_id,
         ):
             yield event

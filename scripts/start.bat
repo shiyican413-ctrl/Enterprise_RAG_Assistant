@@ -96,7 +96,14 @@ if errorlevel 1 (
   start "Enterprise RAG Backend" cmd /k call "%~dp0start-backend.bat" "%BACKEND_PORT%"
   set "STARTED_SERVICE=1"
 ) else (
-  echo [start] Backend port %BACKEND_PORT% is already in use. Reusing existing service.
+  curl.exe -fsS "http://%APP_HOST%:%BACKEND_PORT%/openapi.json" 2^>nul ^| findstr.exe /C:"/api/auth/login" ^>nul
+  if errorlevel 1 (
+    echo [start] Error: port %BACKEND_PORT% is occupied by an outdated or different backend.
+    echo [start] Stop that process and run start.bat again.
+    set "STARTUP_EXIT_CODE=1"
+    goto failed
+  )
+  echo [start] Compatible backend already running on port %BACKEND_PORT%. Reusing it.
 )
 
 set "CHECK_PORT=%FRONTEND_PORT%"

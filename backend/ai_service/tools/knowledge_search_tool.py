@@ -30,8 +30,16 @@ class KnowledgeSearchTool:
     def run(self, payload: dict, context: ToolContext) -> ToolResult:
         query = str(payload.get("query") or "").strip()
         plan = self.query_rewriter.rewrite(query)
+        tenant_id = str(context.metadata.get("tenant_id") or "")
         results_by_query = [
-            (semantic_query, self.vector_store.search(semantic_query, top_k=context.top_k))
+            (
+                semantic_query,
+                self.vector_store.search(
+                    semantic_query,
+                    top_k=context.top_k,
+                    **({"tenant_id": tenant_id} if tenant_id else {}),
+                ),
+            )
             for semantic_query in plan.semantic_queries
         ]
         results, matched_queries = _fuse_results(results_by_query, top_k=context.top_k)

@@ -36,6 +36,8 @@ class ChatWorkflow:
         conversation_id: str | None = None,
         top_k: int = TOP_K,
         answer_mode: AnswerMode = "fast",
+        user_id: str | None = None,
+        tenant_id: str | None = None,
     ) -> dict:
         with traced_step(self.trace_service, trace, "guardrails.input"):
             guardrail = self.guardrails.validate_chat_input(question)
@@ -43,7 +45,11 @@ class ChatWorkflow:
             raise ValueError(guardrail.reason)
 
         with traced_step(self.trace_service, trace, "memory.load"):
-            memory_context = self.memory.load_context(conversation_id)
+            memory_context = self.memory.load_context(
+                conversation_id, user_id=user_id, tenant_id=tenant_id
+            )
+            if conversation_id and user_id and not memory_context:
+                raise ValueError("会话不存在或无权访问")
 
         with traced_step(self.trace_service, trace, "planner.create_plan"):
             plan = self.planner.create_plan(
@@ -52,7 +58,9 @@ class ChatWorkflow:
                 memory=memory_context,
             )
 
-        execution = self.executor.execute(plan=plan, trace=trace, top_k=top_k)
+        execution = self.executor.execute(
+            plan=plan, trace=trace, top_k=top_k, tenant_id=tenant_id
+        )
 
         with traced_step(self.trace_service, trace, "memory.append_turn"):
             turn = self.memory.append_turn(
@@ -60,6 +68,8 @@ class ChatWorkflow:
                 answer=execution.answer,
                 sources=execution.sources,
                 conversation_id=conversation_id,
+                user_id=user_id,
+                tenant_id=tenant_id,
             )
 
         return {
@@ -81,6 +91,8 @@ class ChatWorkflow:
         conversation_id: str | None = None,
         top_k: int = TOP_K,
         answer_mode: AnswerMode = "fast",
+        user_id: str | None = None,
+        tenant_id: str | None = None,
     ) -> AsyncIterator[dict]:
         def route_step() -> dict:
             return {"type": "route_step", "step": self.trace_service.latest_route_step(trace)}
@@ -95,7 +107,11 @@ class ChatWorkflow:
 
         yield {"type": "phase", "layer": "memory", "status": "start", "label": "加载会话记忆"}
         with traced_step(self.trace_service, trace, "memory.load"):
-            memory_context = self.memory.load_context(conversation_id)
+            memory_context = self.memory.load_context(
+                conversation_id, user_id=user_id, tenant_id=tenant_id
+            )
+            if conversation_id and user_id and not memory_context:
+                raise ValueError("会话不存在或无权访问")
         yield route_step()
         yield {"type": "phase", "layer": "memory", "status": "done", "label": "加载会话记忆"}
 
@@ -121,6 +137,7 @@ class ChatWorkflow:
             plan=plan,
             trace=trace,
             top_k=top_k,
+            tenant_id=tenant_id,
         ):
             if event.get("type") == "executor_result":
                 execution_result = event
@@ -139,6 +156,8 @@ class ChatWorkflow:
                 answer=str(execution_result.get("answer") or ""),
                 sources=list(execution_result.get("sources") or []),
                 conversation_id=conversation_id,
+                user_id=user_id,
+                tenant_id=tenant_id,
             )
         yield route_step()
 

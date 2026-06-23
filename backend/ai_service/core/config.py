@@ -8,6 +8,8 @@ UPLOAD_DIR = DATA_DIR / "uploads"
 KNOWLEDGE_DIR = DATA_DIR / "knowledge_base"
 INDEX_FILE = KNOWLEDGE_DIR / "chunks.json"
 HISTORY_FILE = KNOWLEDGE_DIR / "history.json"
+USERS_FILE = KNOWLEDGE_DIR / "users.json"
+TENANTS_FILE = KNOWLEDGE_DIR / "tenants.json"
 
 
 def _load_local_env() -> None:
@@ -37,6 +39,15 @@ TOP_K = 4
 VECTOR_SCORE_THRESHOLD = float(os.getenv("VECTOR_SCORE_THRESHOLD", "0.20"))
 
 DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+JWT_SECRET = os.getenv("JWT_SECRET", "dev-only-change-me-before-production").strip()
+JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "480"))
+INITIAL_ADMIN_EMAIL = os.getenv("INITIAL_ADMIN_EMAIL", "admin@example.com").strip().lower()
+INITIAL_ADMIN_PASSWORD = os.getenv("INITIAL_ADMIN_PASSWORD", "Admin123!")
+INITIAL_ADMIN_NAME = os.getenv("INITIAL_ADMIN_NAME", "系统管理员").strip()
+DEFAULT_TENANT_ID = os.getenv(
+    "DEFAULT_TENANT_ID", "00000000-0000-0000-0000-000000000001"
+).strip()
+DEFAULT_TENANT_NAME = os.getenv("DEFAULT_TENANT_NAME", "默认企业").strip()
 VECTOR_STORE_BACKEND = os.getenv("VECTOR_STORE_BACKEND", "milvus").strip().lower()
 MILVUS_URI = os.getenv("MILVUS_URI", "http://127.0.0.1:19530").strip()
 MILVUS_TOKEN = os.getenv("MILVUS_TOKEN", "").strip()

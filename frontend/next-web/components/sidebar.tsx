@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { productHighlights } from "@/lib/types";
+import { useAuth } from "@/components/auth/auth-provider";
 
 type SidebarProps = {
   isHealthy: boolean;
@@ -27,6 +28,7 @@ const navItems = [
 ];
 
 export function Sidebar({ isHealthy }: SidebarProps) {
+  const { user } = useAuth();
   const pathname = usePathname();
   const highlightIcons = [Route, FileSearch, Database, ShieldCheck];
   const highlightItems = productHighlights.map((label, index) => ({
@@ -46,10 +48,10 @@ export function Sidebar({ isHealthy }: SidebarProps) {
     <aside className="flex h-full w-full flex-col border-r border-[var(--side-border)] bg-[var(--side-bg)]">
       <div className="flex h-[72px] items-center gap-3 px-6">
         <div className="relative grid size-11 shrink-0 place-items-center rounded-full bg-[var(--side-active-ring)] text-sm font-bold text-[var(--side-avatar-fg)] shadow-[0_10px_24px_rgba(17,19,23,0.18)]">
-          R
+          {user?.name?.slice(0, 1).toUpperCase() ?? "R"}
         </div>
         <div className="text-[20px] font-bold leading-none tracking-normal text-[var(--side-fg)]">
-          企业 <span className="ml-2">RAG</span>
+          <span className="min-w-0 truncate">{user?.tenant_name || "企业 RAG"}</span>
         </div>
       </div>
 

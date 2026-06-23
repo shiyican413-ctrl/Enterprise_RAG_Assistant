@@ -81,6 +81,11 @@ VECTOR_STORE_BACKEND=milvus
 MILVUS_URI=http://127.0.0.1:19530
 MILVUS_COLLECTION=enterprise_rag_chunks
 DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/enterprise_rag
+JWT_SECRET=replace-with-a-long-random-secret
+INITIAL_ADMIN_EMAIL=admin@example.com
+INITIAL_ADMIN_PASSWORD=replace-this-before-first-start
+DEFAULT_TENANT_ID=00000000-0000-0000-0000-000000000001
+DEFAULT_TENANT_NAME=默认企业
 
 DASHSCOPE_API_KEY=your-dashscope-api-key
 BAILIAN_CHAT_URL=https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions

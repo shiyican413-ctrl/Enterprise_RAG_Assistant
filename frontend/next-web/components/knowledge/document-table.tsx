@@ -10,6 +10,7 @@ type DocumentTableProps = {
   isLoading: boolean;
   totalDocuments: number;
   selectedIds: Set<string>;
+  canManage: boolean;
   onSelect: (document: KnowledgeDocument) => void;
   onCopyId: (documentId: string) => void;
   onDelete: (document: KnowledgeDocument) => void;
@@ -22,6 +23,7 @@ export function DocumentTable({
   isLoading,
   totalDocuments,
   selectedIds,
+  canManage,
   onSelect,
   onCopyId,
   onDelete,
@@ -35,7 +37,7 @@ export function DocumentTable({
       <table className="w-full min-w-[860px] border-collapse text-left">
         <thead className="bg-[var(--work-surface-subtle)] text-xs font-bold uppercase text-[var(--work-muted)]">
           <tr>
-            <th className="w-12 px-4 py-3">
+            {canManage ? <th className="w-12 px-4 py-3">
               <input
                 type="checkbox"
                 checked={allSelected}
@@ -43,7 +45,7 @@ export function DocumentTable({
                 className="size-4 cursor-pointer rounded border-[var(--work-border-strong)] accent-[var(--work-accent)]"
                 aria-label="全选"
               />
-            </th>
+            </th> : null}
             <th className="px-4 py-3">文档名称</th>
             <th className="px-4 py-3">类型</th>
             <th className="px-4 py-3">片段</th>
@@ -61,7 +63,7 @@ export function DocumentTable({
                 key={doc.document_id}
                 className={`transition-colors hover:bg-[var(--work-surface-subtle)] ${selectedIds.has(doc.document_id) ? "bg-[var(--work-accent-soft)]" : ""}`}
               >
-                <td className="px-4 py-4">
+                {canManage ? <td className="px-4 py-4">
                   <input
                     type="checkbox"
                     checked={selectedIds.has(doc.document_id)}
@@ -69,7 +71,7 @@ export function DocumentTable({
                     className="size-4 cursor-pointer rounded border-[var(--work-border-strong)] accent-[var(--work-accent)]"
                     aria-label={`选择 ${doc.document_name}`}
                   />
-                </td>
+                </td> : null}
                 <td className="max-w-[360px] px-4 py-4">
                   <button
                     type="button"
@@ -107,7 +109,7 @@ export function DocumentTable({
                 </td>
                 <td className="px-4 py-4">
                   <div className="flex justify-end gap-2">
-                    <Button
+                    {canManage ? <Button
                       type="button"
                       variant="outline"
                       size="sm"
@@ -115,7 +117,7 @@ export function DocumentTable({
                       onClick={() => onSelect(doc)}
                     >
                       查看
-                    </Button>
+                    </Button> : null}
                     <Button
                       type="button"
                       variant="ghost"

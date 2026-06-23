@@ -1,6 +1,22 @@
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
 
+import { clearAccessToken, getAccessToken } from "@/lib/auth";
+
+export async function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  const token = getAccessToken();
+  const headers = new Headers(init.headers);
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  const response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers });
+  if (response.status === 401 && typeof window !== "undefined") {
+    clearAccessToken();
+    if (!window.location.pathname.startsWith("/login")) {
+      window.location.assign(`/login?next=${encodeURIComponent(window.location.pathname)}`);
+    }
+  }
+  return response;
+}
+
 export type Source = {
   document_id: string;
   document_name: string;
@@ -137,7 +153,7 @@ export async function askQuestion(
   answerMode: AnswerMode,
   conversationId?: string,
 ): Promise<AskResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/chat/ask`, {
+  const response = await apiFetch(`/api/chat/ask`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -163,7 +179,7 @@ export async function streamQuestion(
   conversationId: string | undefined,
   onEvent: (event: StreamEvent) => void,
 ): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/chat/stream`, {
+  const response = await apiFetch(`/api/chat/stream`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -223,7 +239,7 @@ function consumeSseBuffer(
 }
 
 export async function fetchDocuments(): Promise<KnowledgeDocument[]> {
-  const response = await fetch(`${API_BASE_URL}/api/documents`, {
+  const response = await apiFetch(`/api/documents`, {
     cache: "no-store",
   });
 
@@ -239,7 +255,7 @@ export async function uploadDocument(file: File): Promise<void> {
   const formData = new FormData();
   formData.append("file", file);
 
-  const response = await fetch(`${API_BASE_URL}/api/documents/upload`, {
+  const response = await apiFetch(`/api/documents/upload`, {
     method: "POST",
     body: formData,
   });
@@ -252,7 +268,7 @@ export async function uploadDocument(file: File): Promise<void> {
 export async function deleteDocument(
   documentId: string,
 ): Promise<DeleteDocumentResult> {
-  const response = await fetch(`${API_BASE_URL}/api/documents/${documentId}`, {
+  const response = await apiFetch(`/api/documents/${documentId}`, {
     method: "DELETE",
   });
 
@@ -271,7 +287,7 @@ export type BatchDeleteResult = {
 export async function batchDeleteDocuments(
   documentIds: string[],
 ): Promise<BatchDeleteResult> {
-  const response = await fetch(`${API_BASE_URL}/api/documents/batch-delete`, {
+  const response = await apiFetch(`/api/documents/batch-delete`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ document_ids: documentIds }),
@@ -285,7 +301,7 @@ export async function batchDeleteDocuments(
 }
 
 export async function rebuildKnowledge(): Promise<RebuildKnowledgeResult> {
-  const response = await fetch(`${API_BASE_URL}/api/knowledge/rebuild`, {
+  const response = await apiFetch(`/api/knowledge/rebuild`, {
     method: "POST",
   });
 
@@ -299,8 +315,8 @@ export async function rebuildKnowledge(): Promise<RebuildKnowledgeResult> {
 export async function fetchDocumentChunks(
   documentId: string,
 ): Promise<DocumentChunk[]> {
-  const response = await fetch(
-    `${API_BASE_URL}/api/documents/${documentId}/chunks`,
+  const response = await apiFetch(
+    `/api/documents/${documentId}/chunks`,
     { cache: "no-store" },
   );
 

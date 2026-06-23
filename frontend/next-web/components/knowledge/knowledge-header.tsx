@@ -13,6 +13,7 @@ type KnowledgeHeaderProps = {
   isUploading: boolean;
   isRebuilding: boolean;
   notice?: KnowledgeNotice;
+  canManage: boolean;
   onFileChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onRefresh: () => void;
   onRebuild: () => void;
@@ -25,6 +26,7 @@ export function KnowledgeHeader({
   isUploading,
   isRebuilding,
   notice,
+  canManage,
   onFileChange,
   onRefresh,
   onRebuild,
@@ -45,15 +47,15 @@ export function KnowledgeHeader({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <input
+          {canManage ? <input
             ref={fileRef}
             type="file"
             multiple
             accept={ACCEPTED_EXTENSIONS.join(",")}
             className="sr-only"
             onChange={onFileChange}
-          />
-          <Button
+          /> : null}
+          {canManage ? <Button
             type="button"
             className="h-10 rounded-[8px] bg-[var(--work-accent)] px-4 text-sm font-semibold text-white hover:bg-[var(--work-accent-strong)]"
             disabled={isUploading || !isHealthy}
@@ -65,8 +67,8 @@ export function KnowledgeHeader({
               <UploadCloud className="size-4" />
             )}
             上传文档
-          </Button>
-          <Button
+          </Button> : null}
+          {canManage ? <Button
             type="button"
             variant="outline"
             className="h-10 rounded-[8px] border-[var(--work-border-strong)] bg-[var(--work-surface)] px-4 text-sm font-semibold text-[var(--work-text-soft)] hover:bg-[var(--work-surface-subtle)]"
@@ -75,7 +77,7 @@ export function KnowledgeHeader({
           >
             <RefreshCw className={cn("size-4", isLoading && "animate-spin")} />
             刷新
-          </Button>
+          </Button> : null}
           <Button
             type="button"
             variant="destructive"

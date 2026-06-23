@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth";
 
 const STARS = [
   ["6%", "12%", 0],
@@ -33,10 +34,16 @@ export function ConsoleTransition() {
   const isRoutingRef = useRef(false);
   const timeoutRef = useRef<number | null>(null);
 
-  const startConsoleTransition = useCallback(() => {
+  const startConsoleTransition = useCallback(async () => {
     if (isRoutingRef.current) return;
 
     isRoutingRef.current = true;
+    const user = await getCurrentUser().catch(() => null);
+    if (!user) {
+      isRoutingRef.current = false;
+      router.push("/login?next=%2Fconsole");
+      return;
+    }
     setActive(true);
 
     const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -62,12 +69,12 @@ export function ConsoleTransition() {
       if (url.origin !== window.location.origin || url.pathname !== "/console" || url.hash) return;
 
       event.preventDefault();
-      startConsoleTransition();
+      void startConsoleTransition();
     }
 
     function handleOpenConsole(event: Event) {
       event.preventDefault();
-      startConsoleTransition();
+      void startConsoleTransition();
     }
 
     document.addEventListener("click", handleDocumentClick, true);

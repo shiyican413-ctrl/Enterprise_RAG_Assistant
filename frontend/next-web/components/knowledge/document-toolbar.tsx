@@ -9,6 +9,7 @@ type DocumentToolbarProps = {
   filteredCount: number;
   totalCount: number;
   selectedCount: number;
+  canManage: boolean;
   onQueryChange: (query: string) => void;
   onExtensionChange: (extension: string) => void;
   onBatchDelete: () => void;
@@ -22,6 +23,7 @@ export function DocumentToolbar({
   filteredCount,
   totalCount,
   selectedCount,
+  canManage,
   onQueryChange,
   onExtensionChange,
   onBatchDelete,
@@ -40,7 +42,7 @@ export function DocumentToolbar({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        {selectedCount > 0 && (
+        {canManage && selectedCount > 0 && (
           <>
             <Badge variant="outline" className="h-10 gap-1.5 rounded-[8px] border-[var(--work-accent)] bg-[var(--work-accent-soft)] px-3 text-sm font-semibold text-[var(--work-accent)]">
               已选 {selectedCount} 项

@@ -10,6 +10,24 @@ class AskRequest(BaseModel):
     answer_mode: Literal["fast", "thinking"] = "fast"
 
 
+class LoginRequest(BaseModel):
+    email: str = Field(..., min_length=3, max_length=254)
+    password: str = Field(..., min_length=1, max_length=256)
+
+
+class CreateTenantRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=120)
+    slug: str = Field(..., pattern=r"^[a-z0-9][a-z0-9-]{1,62}$")
+
+
+class CreateUserRequest(BaseModel):
+    email: str = Field(..., min_length=3, max_length=254)
+    name: str = Field(..., min_length=1, max_length=120)
+    password: str = Field(..., min_length=8, max_length=256)
+    role: Literal["viewer", "maintainer", "admin"] = "viewer"
+    tenant_id: str | None = None
+
+
 class AskResponse(BaseModel):
     conversation_id: str
     trace_id: str | None = None

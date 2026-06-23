@@ -116,8 +116,12 @@ class ExecutorService:
         plan: Plan,
         trace: TraceContext,
         top_k: int,
+        tenant_id: str | None = None,
     ) -> ExecutionResult:
-        tool_context = ToolContext(trace_id=trace.trace_id, top_k=top_k)
+        tool_context = ToolContext(
+            trace_id=trace.trace_id, top_k=top_k,
+            metadata={"tenant_id": tenant_id} if tenant_id else {},
+        )
         results: list[SearchResult] = []
         sources: list[dict] = []
 
@@ -176,8 +180,12 @@ class ExecutorService:
         plan: Plan,
         trace: TraceContext,
         top_k: int,
+        tenant_id: str | None = None,
     ) -> AsyncIterator[dict]:
-        tool_context = ToolContext(trace_id=trace.trace_id, top_k=top_k)
+        tool_context = ToolContext(
+            trace_id=trace.trace_id, top_k=top_k,
+            metadata={"tenant_id": tenant_id} if tenant_id else {},
+        )
         results: list[SearchResult] = []
         sources: list[dict] = []
         agent_run = AgentRun(answer="", sources=[], model=None, steps=[], raw_results=[])

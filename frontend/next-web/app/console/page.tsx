@@ -22,8 +22,13 @@ import { ChatPanel } from "@/components/chat-panel";
 import { InspectorPanel } from "@/components/inspector-panel";
 import { CircleCheck, Plus, UserRound } from "lucide-react";
 import "./console.css";
+import { RequireAuth } from "@/components/auth/require-auth";
+import { useAuth } from "@/components/auth/auth-provider";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
+  const { user, logout } = useAuth();
+  const router = useRouter();
   const [question, setQuestion] = useState("");
   const [conversationId, setConversationId] = useState<string>();
   const [messages, setMessages] = useState<Message[]>([
@@ -263,7 +268,7 @@ export default function Home() {
     }
   }
 
-  return (
+  return <RequireAuth>{(
     <div className="workspace-root min-h-screen bg-[var(--workspace-canvas)] text-[var(--work-text)] lg:overflow-hidden">
       <div className="grid min-h-screen grid-cols-1 lg:h-screen lg:grid-cols-[280px_minmax(0,1fr)]">
         <div className="hidden min-h-0 lg:block">
@@ -314,7 +319,9 @@ export default function Home() {
               <button
                 type="button"
                 className="grid size-10 place-items-center rounded-full border border-[var(--work-border-strong)] bg-[var(--work-surface)] text-[var(--work-text)] transition-colors hover:border-[var(--work-accent)] hover:bg-[var(--work-accent-soft)]"
-                aria-label="用户中心"
+                aria-label={`${user?.name ?? "用户"}，点击退出登录`}
+                title={`${user?.name ?? "用户"} · ${user?.role ?? ""}（点击退出）`}
+                onClick={() => { logout(); router.push("/"); }}
               >
                 <UserRound className="size-5 fill-current" strokeWidth={2.2} />
               </button>
@@ -351,5 +358,5 @@ export default function Home() {
         </main>
       </div>
     </div>
-  );
+  )}</RequireAuth>;
 }

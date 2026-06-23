@@ -17,6 +17,7 @@ from backend.ai_service.core.config import (
     MILVUS_TOKEN,
     MILVUS_URI,
     VECTOR_SCORE_THRESHOLD,
+    DEFAULT_TENANT_ID,
 )
 from backend.ai_service.retrieval.embeddings import BailianEmbeddingClient
 
@@ -33,6 +34,7 @@ class DocumentChunk:
     content: str
     metadata: dict
     created_at: str
+    tenant_id: str = DEFAULT_TENANT_ID
     embedding: list[float] | None = None
     embedding_model: str | None = None
 
@@ -69,6 +71,7 @@ class LocalVectorStore:
         document_name: str,
         chunks: Iterable[str],
         metadata: dict | None = None,
+        tenant_id: str = DEFAULT_TENANT_ID,
     ) -> tuple[str, int]:
         document_id = str(uuid.uuid4())
         now = datetime.now(UTC).isoformat()
@@ -81,6 +84,7 @@ class LocalVectorStore:
                 id=str(uuid.uuid4()),
                 document_id=document_id,
                 document_name=document_name,
+                tenant_id=tenant_id,
                 chunk_index=index,
                 content=chunk.content,
                 metadata=chunk.metadata,
@@ -95,9 +99,11 @@ class LocalVectorStore:
         self._save()
         return document_id, len(new_chunks)
 
-    def list_documents(self) -> list[dict]:
+    def list_documents(self, tenant_id: str = DEFAULT_TENANT_ID) -> list[dict]:
         documents: dict[str, dict] = {}
         for chunk in self._chunks:
+            if chunk.tenant_id != tenant_id:
+                continue
             entry = documents.setdefault(
                 chunk.document_id,
                 {
@@ -111,44 +117,50 @@ class LocalVectorStore:
             entry["chunk_count"] += 1
         return sorted(documents.values(), key=lambda item: item["created_at"], reverse=True)
 
-    def delete_document(self, document_id: str) -> int:
+    def delete_document(self, document_id: str, tenant_id: str = DEFAULT_TENANT_ID) -> int:
         before = len(self._chunks)
-        self._chunks = [chunk for chunk in self._chunks if chunk.document_id != document_id]
+        self._chunks = [chunk for chunk in self._chunks if not (
+            chunk.document_id == document_id and chunk.tenant_id == tenant_id
+        )]
         deleted = before - len(self._chunks)
         if deleted:
             self._save()
         return deleted
 
-    def delete_documents(self, document_ids: Iterable[str]) -> int:
+    def delete_documents(self, document_ids: Iterable[str], tenant_id: str = DEFAULT_TENANT_ID) -> int:
         id_set = set(document_ids)
         before = len(self._chunks)
-        self._chunks = [chunk for chunk in self._chunks if chunk.document_id not in id_set]
+        self._chunks = [chunk for chunk in self._chunks if not (
+            chunk.document_id in id_set and chunk.tenant_id == tenant_id
+        )]
         deleted = before - len(self._chunks)
         if deleted:
             self._save()
         return deleted
 
-    def list_document_chunks(self, document_id: str) -> list[dict]:
+    def list_document_chunks(self, document_id: str, tenant_id: str = DEFAULT_TENANT_ID) -> list[dict]:
         chunks = [
             chunk
             for chunk in self._chunks
-            if chunk.document_id == document_id
+            if chunk.document_id == document_id and chunk.tenant_id == tenant_id
         ]
         return [_chunk_payload(chunk) for chunk in sorted(chunks, key=lambda item: item.chunk_index)]
 
-    def clear(self) -> None:
-        self._chunks = []
+    def clear(self, tenant_id: str = DEFAULT_TENANT_ID) -> None:
+        self._chunks = [chunk for chunk in self._chunks if chunk.tenant_id != tenant_id]
         self._save()
 
-    def search(self, query: str, top_k: int) -> list[SearchResult]:
+    def search(self, query: str, top_k: int, tenant_id: str = DEFAULT_TENANT_ID) -> list[SearchResult]:
         if self.embedding_client.enabled and self._has_dense_embeddings():
-            return self._dense_search(query, top_k=top_k)
-        return self._sparse_search(query, top_k=top_k)
+            return self._dense_search(query, top_k=top_k, tenant_id=tenant_id)
+        return self._sparse_search(query, top_k=top_k, tenant_id=tenant_id)
 
-    def _dense_search(self, query: str, top_k: int) -> list[SearchResult]:
+    def _dense_search(self, query: str, top_k: int, tenant_id: str) -> list[SearchResult]:
         query_embedding = self.embedding_client.embed_texts([query])[0]
         results: list[SearchResult] = []
         for chunk in self._chunks:
+            if chunk.tenant_id != tenant_id:
+                continue
             if not chunk.embedding:
                 continue
             score = _dense_cosine_similarity(query_embedding, chunk.embedding)
@@ -157,13 +169,15 @@ class LocalVectorStore:
 
         return sorted(results, key=lambda result: result.score, reverse=True)[:top_k]
 
-    def _sparse_search(self, query: str, top_k: int) -> list[SearchResult]:
+    def _sparse_search(self, query: str, top_k: int, tenant_id: str) -> list[SearchResult]:
         query_vector = _to_vector(query)
         if not query_vector:
             return []
 
         results: list[SearchResult] = []
         for chunk in self._chunks:
+            if chunk.tenant_id != tenant_id:
+                continue
             score = _cosine_similarity(query_vector, _to_vector(chunk.content))
             if score > 0:
                 results.append(SearchResult(chunk=chunk, score=score))
@@ -182,7 +196,11 @@ class LocalVectorStore:
         if not self.index_file.exists():
             return []
         payload = json.loads(self.index_file.read_text(encoding="utf-8"))
-        return [DocumentChunk(**item) for item in payload]
+        migrated = []
+        for item in payload:
+            item.setdefault("tenant_id", DEFAULT_TENANT_ID)
+            migrated.append(DocumentChunk(**item))
+        return migrated
 
     def _save(self) -> None:
         self.index_file.parent.mkdir(parents=True, exist_ok=True)
@@ -237,6 +255,7 @@ class MilvusVectorStore:
         "id",
         "document_id",
         "document_name",
+        "tenant_id",
         "chunk_index",
         "content",
         "metadata_json",
@@ -271,6 +290,7 @@ class MilvusVectorStore:
         document_name: str,
         chunks: Iterable[str],
         metadata: dict | None = None,
+        tenant_id: str = DEFAULT_TENANT_ID,
     ) -> tuple[str, int]:
         prepared_chunks = _prepare_chunks(chunks, metadata)
         contents = [chunk.content for chunk in prepared_chunks]
@@ -285,6 +305,7 @@ class MilvusVectorStore:
                 "id": str(uuid.uuid4()),
                 "document_id": document_id,
                 "document_name": document_name,
+                "tenant_id": tenant_id,
                 "chunk_index": index,
                 "content": chunk.content,
                 "metadata_json": _json(chunk.metadata),
@@ -299,8 +320,8 @@ class MilvusVectorStore:
         self.collection.flush()
         return document_id, len(rows)
 
-    def list_documents(self) -> list[dict]:
-        chunks = self._query_chunks('chunk_index >= 0')
+    def list_documents(self, tenant_id: str = DEFAULT_TENANT_ID) -> list[dict]:
+        chunks = self._query_chunks(self._tenant_expr(tenant_id))
         documents: dict[str, dict] = {}
         for chunk in chunks:
             entry = documents.setdefault(
@@ -316,20 +337,8 @@ class MilvusVectorStore:
             entry["chunk_count"] += 1
         return sorted(documents.values(), key=lambda item: item["created_at"], reverse=True)
 
-    def delete_document(self, document_id: str) -> int:
-        chunks = self._query_chunks(f'document_id == "{_escape_milvus_string(document_id)}"')
-        if not chunks:
-            return 0
-        result = self.collection.delete(f'document_id == "{_escape_milvus_string(document_id)}"')
-        self.collection.flush()
-        return int(getattr(result, "delete_count", len(chunks)) or len(chunks))
-
-    def delete_documents(self, document_ids: Iterable[str]) -> int:
-        ids = list(document_ids)
-        if not ids:
-            return 0
-        escaped = [_escape_milvus_string(document_id) for document_id in ids]
-        expr = " or ".join(f'document_id == "{document_id}"' for document_id in escaped)
+    def delete_document(self, document_id: str, tenant_id: str = DEFAULT_TENANT_ID) -> int:
+        expr = f'{self._tenant_expr(tenant_id)} and document_id == "{_escape_milvus_string(document_id)}"'
         chunks = self._query_chunks(expr)
         if not chunks:
             return 0
@@ -337,17 +346,32 @@ class MilvusVectorStore:
         self.collection.flush()
         return int(getattr(result, "delete_count", len(chunks)) or len(chunks))
 
-    def list_document_chunks(self, document_id: str) -> list[dict]:
-        chunks = self._query_chunks(f'document_id == "{_escape_milvus_string(document_id)}"')
+    def delete_documents(self, document_ids: Iterable[str], tenant_id: str = DEFAULT_TENANT_ID) -> int:
+        ids = list(document_ids)
+        if not ids:
+            return 0
+        escaped = [_escape_milvus_string(document_id) for document_id in ids]
+        ids_expr = " or ".join(f'document_id == "{document_id}"' for document_id in escaped)
+        expr = f'{self._tenant_expr(tenant_id)} and ({ids_expr})'
+        chunks = self._query_chunks(expr)
+        if not chunks:
+            return 0
+        result = self.collection.delete(expr)
+        self.collection.flush()
+        return int(getattr(result, "delete_count", len(chunks)) or len(chunks))
+
+    def list_document_chunks(self, document_id: str, tenant_id: str = DEFAULT_TENANT_ID) -> list[dict]:
+        expr = f'{self._tenant_expr(tenant_id)} and document_id == "{_escape_milvus_string(document_id)}"'
+        chunks = self._query_chunks(expr)
         return [_chunk_payload(chunk) for chunk in sorted(chunks, key=lambda item: item.chunk_index)]
 
-    def clear(self) -> None:
+    def clear(self, tenant_id: str = DEFAULT_TENANT_ID) -> None:
         if self.collection.num_entities == 0:
             return
-        self.collection.delete("chunk_index >= 0")
+        self.collection.delete(self._tenant_expr(tenant_id))
         self.collection.flush()
 
-    def search(self, query: str, top_k: int) -> list[SearchResult]:
+    def search(self, query: str, top_k: int, tenant_id: str = DEFAULT_TENANT_ID) -> list[SearchResult]:
         query_embedding = self.embedding_client.embed_texts([query])[0]
         hits = self.collection.search(
             data=[query_embedding],
@@ -355,6 +379,7 @@ class MilvusVectorStore:
             param={"metric_type": "COSINE", "params": {"nprobe": 10}},
             limit=top_k,
             output_fields=self._OUTPUT_FIELDS,
+            expr=self._tenant_expr(tenant_id),
         )
         results: list[SearchResult] = []
         for hit in hits[0]:
@@ -366,6 +391,7 @@ class MilvusVectorStore:
                 id=str(entity.get("id")),
                 document_id=str(entity.get("document_id")),
                 document_name=str(entity.get("document_name")),
+                tenant_id=str(entity.get("tenant_id")),
                 chunk_index=int(entity.get("chunk_index")),
                 content=str(entity.get("content")),
                 metadata=_loads_metadata(entity.get("metadata_json")),
@@ -397,6 +423,10 @@ class MilvusVectorStore:
         )
         return [_chunk_from_milvus_row(row) for row in rows]
 
+    @staticmethod
+    def _tenant_expr(tenant_id: str) -> str:
+        return f'tenant_id == "{_escape_milvus_string(tenant_id)}"'
+
     def _ensure_collection(self):
         try:
             from pymilvus import (
@@ -417,11 +447,17 @@ class MilvusVectorStore:
             connect_kwargs["db_name"] = self.db_name
         connections.connect(**connect_kwargs)
 
+        if utility.has_collection(self.collection_name, using=self.alias):
+            existing = Collection(name=self.collection_name, using=self.alias)
+            if "tenant_id" not in {field.name for field in existing.schema.fields}:
+                self.collection_name = f"{self.collection_name}_tenant_v1"
+
         if not utility.has_collection(self.collection_name, using=self.alias):
             fields = [
                 FieldSchema("id", DataType.VARCHAR, is_primary=True, max_length=64),
                 FieldSchema("document_id", DataType.VARCHAR, max_length=64),
                 FieldSchema("document_name", DataType.VARCHAR, max_length=512),
+                FieldSchema("tenant_id", DataType.VARCHAR, max_length=64),
                 FieldSchema("chunk_index", DataType.INT64),
                 FieldSchema("content", DataType.VARCHAR, max_length=65535),
                 FieldSchema("metadata_json", DataType.VARCHAR, max_length=8192),
@@ -494,6 +530,7 @@ def _chunk_from_milvus_row(row: dict) -> DocumentChunk:
         id=str(row["id"]),
         document_id=str(row["document_id"]),
         document_name=str(row["document_name"]),
+        tenant_id=str(row["tenant_id"]),
         chunk_index=int(row["chunk_index"]),
         content=str(row["content"]),
         metadata=_loads_metadata(row.get("metadata_json")),
@@ -524,6 +561,7 @@ def _chunk_payload(chunk: DocumentChunk) -> dict:
         "chunk_id": chunk.id,
         "document_id": chunk.document_id,
         "document_name": chunk.document_name,
+        "tenant_id": chunk.tenant_id,
         "chunk_index": chunk.chunk_index,
         "content": chunk.content,
         "metadata": chunk.metadata,

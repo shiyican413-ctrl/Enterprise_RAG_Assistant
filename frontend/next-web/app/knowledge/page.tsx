@@ -8,11 +8,15 @@ import { DocumentToolbar } from "@/components/knowledge/document-toolbar";
 import { KnowledgeHeader } from "@/components/knowledge/knowledge-header";
 import { KnowledgeMetrics } from "@/components/knowledge/knowledge-metrics";
 import { useKnowledgePage } from "@/components/knowledge/use-knowledge-page";
+import { RequireAuth } from "@/components/auth/require-auth";
+import { useAuth } from "@/components/auth/auth-provider";
 
 export default function KnowledgePage() {
   const knowledge = useKnowledgePage();
+  const { user } = useAuth();
+  const canManage = user?.role === "maintainer" || user?.role === "admin";
 
-  return (
+  return <RequireAuth>{(
     <div className="workspace-root min-h-screen bg-[var(--workspace-canvas)] text-[var(--work-text)] lg:overflow-hidden">
       <div className="grid min-h-screen grid-cols-1 lg:h-screen lg:grid-cols-[280px_minmax(0,1fr)]">
         <div className="hidden min-h-0 lg:block">
@@ -40,6 +44,7 @@ export default function KnowledgePage() {
               isUploading={knowledge.isUploading}
               isRebuilding={knowledge.isRebuilding}
               notice={knowledge.notice}
+              canManage={canManage}
               onFileChange={knowledge.handleFileChange}
               onRefresh={knowledge.refreshKnowledge}
               onRebuild={() => knowledge.setShowRebuildConfirm(true)}
@@ -59,6 +64,7 @@ export default function KnowledgePage() {
                 filteredCount={knowledge.filteredDocuments.length}
                 totalCount={knowledge.documents.length}
                 selectedCount={knowledge.selectedIds.size}
+                canManage={canManage}
                 onQueryChange={knowledge.setQuery}
                 onExtensionChange={knowledge.setExtension}
                 onBatchDelete={() => knowledge.setShowBatchDeleteConfirm(true)}
@@ -69,6 +75,7 @@ export default function KnowledgePage() {
                 isLoading={knowledge.isLoading}
                 totalDocuments={knowledge.documents.length}
                 selectedIds={knowledge.selectedIds}
+                canManage={canManage}
                 onSelect={knowledge.setSelectedDocument}
                 onCopyId={knowledge.copyDocumentId}
                 onDelete={knowledge.setPendingDelete}
@@ -123,5 +130,5 @@ export default function KnowledgePage() {
         />
       ) : null}
     </div>
-  );
+  )}</RequireAuth>;
 }

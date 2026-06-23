@@ -4,7 +4,9 @@ from pathlib import Path
 
 from fastapi import UploadFile
 
-from backend.ai_service.core.config import CHUNK_OVERLAP, CHUNK_SIZE, SUPPORTED_EXTENSIONS, UPLOAD_DIR
+from backend.ai_service.core.config import (
+    CHUNK_OVERLAP, CHUNK_SIZE, DEFAULT_TENANT_ID, SUPPORTED_EXTENSIONS, UPLOAD_DIR,
+)
 from backend.ai_service.knowledge.ingest_quality_service import IngestQualityService
 from backend.ai_service.knowledge.loaders.document_loader import load_document_text
 from backend.ai_service.storage.factory import create_vector_store
@@ -21,7 +23,7 @@ class KnowledgeService:
         self.quality_service = quality_service or IngestQualityService()
         UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
-    async def ingest_upload(self, file: UploadFile) -> dict:
+    async def ingest_upload(self, file: UploadFile, tenant_id: str) -> dict:
         filename = Path(file.filename or "uploaded.txt").name
         suffix = Path(filename).suffix.lower()
         if suffix not in SUPPORTED_EXTENSIONS:
@@ -29,15 +31,20 @@ class KnowledgeService:
 
         content = await file.read()
         digest = hashlib.md5(content).hexdigest()
-        target = UPLOAD_DIR / f"{digest}_{filename}"
+        tenant_upload_dir = UPLOAD_DIR / tenant_id
+        tenant_upload_dir.mkdir(parents=True, exist_ok=True)
+        target = tenant_upload_dir / f"{digest}_{filename}"
         target.write_bytes(content)
-        return self.ingest_file(target, original_name=filename, file_md5=digest)
+        return self.ingest_file(
+            target, original_name=filename, file_md5=digest, tenant_id=tenant_id
+        )
 
     def ingest_file(
         self,
         path: Path,
         original_name: str | None = None,
         file_md5: str | None = None,
+        tenant_id: str = DEFAULT_TENANT_ID,
     ) -> dict:
         text = load_document_text(path)
         chunks = split_text(text, chunk_size=CHUNK_SIZE, overlap=CHUNK_OVERLAP)
@@ -54,7 +61,9 @@ class KnowledgeService:
                 "source_path": str(path),
                 "file_md5": file_md5 or _file_md5(path),
                 "extension": path.suffix.lower(),
+                "tenant_id": tenant_id,
             },
+            tenant_id=tenant_id,
         )
 
         return {
@@ -64,14 +73,18 @@ class KnowledgeService:
             "quality_report": quality_report.to_dict(),
         }
 
-    def ingest_directory(self, directory: Path) -> list[dict]:
+    def ingest_directory(self, directory: Path, tenant_id: str) -> list[dict]:
         results: list[dict] = []
         for path in directory.rglob("*"):
             if path.is_file() and path.suffix.lower() in SUPPORTED_EXTENSIONS:
-                copied = UPLOAD_DIR / path.name
+                tenant_upload_dir = UPLOAD_DIR / tenant_id
+                tenant_upload_dir.mkdir(parents=True, exist_ok=True)
+                copied = tenant_upload_dir / path.name
                 if path.resolve() != copied.resolve():
                     shutil.copy2(path, copied)
-                results.append(self.ingest_file(copied, original_name=path.name))
+                results.append(self.ingest_file(
+                    copied, original_name=path.name, tenant_id=tenant_id
+                ))
         return results
 
 
