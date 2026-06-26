@@ -78,7 +78,7 @@ export function KnowledgeHeader({
             <RefreshCw className={cn("size-4", isLoading && "animate-spin")} />
             刷新
           </Button> : null}
-          <Button
+          {canManage ? <Button
             type="button"
             variant="destructive"
             className="h-10 rounded-[8px] px-4 text-sm font-semibold"
@@ -87,7 +87,7 @@ export function KnowledgeHeader({
           >
             <RotateCcw className="size-4" />
             重建索引
-          </Button>
+          </Button> : null}
         </div>
       </div>
 

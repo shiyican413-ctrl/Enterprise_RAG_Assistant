@@ -31,6 +31,7 @@ export function DocumentTable({
   onToggleSelectAll,
 }: DocumentTableProps) {
   const allSelected = documents.length > 0 && selectedIds.size === documents.length;
+  const columnCount = canManage ? 7 : 6;
 
   return (
     <div className="overflow-x-auto">
@@ -56,7 +57,7 @@ export function DocumentTable({
         </thead>
         <tbody className="divide-y divide-[var(--work-border)]">
           {isLoading ? (
-            <TableMessage text="正在加载知识库文档..." colSpan={7} />
+            <TableMessage text="正在加载知识库文档..." colSpan={columnCount} />
           ) : documents.length ? (
             documents.map((doc) => (
               <tr
@@ -128,7 +129,7 @@ export function DocumentTable({
                     >
                       <Clipboard className="size-4" />
                     </Button>
-                    <Button
+                    {canManage ? <Button
                       type="button"
                       variant="destructive"
                       size="icon-sm"
@@ -137,14 +138,14 @@ export function DocumentTable({
                       aria-label="删除文档"
                     >
                       <Trash2 className="size-4" />
-                    </Button>
+                    </Button> : null}
                   </div>
                 </td>
               </tr>
             ))
           ) : (
             <TableMessage
-              colSpan={7}
+              colSpan={columnCount}
               text={
                 totalDocuments
                   ? "没有匹配的文档，请调整搜索或筛选条件。"

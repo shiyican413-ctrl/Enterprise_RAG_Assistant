@@ -167,6 +167,15 @@ answer_delta -> answer_delta -> sources -> done
 
 其中 `sources` 包含引用文档、片段内容、片段序号和匹配分数，前端会用它展示引用追溯信息。
 
+默认引用召回数量由后端环境变量控制，而不是前端写死：
+
+```bash
+RETRIEVAL_DEFAULT_TOP_K=6
+RETRIEVAL_MAX_TOP_K=12
+```
+
+请求体也可以按需传入 `top_k`，后端会按 `RETRIEVAL_MAX_TOP_K` 做上限校验。
+
 ## 开发与验证
 
 后端测试：

@@ -1,6 +1,6 @@
 from collections.abc import AsyncIterator
 
-from backend.ai_service.core.config import TOP_K
+from backend.ai_service.core.config import resolve_retrieval_top_k
 from backend.ai_service.llm.chat_client import AnswerMode, BailianChatClient
 from backend.ai_service.agent.executor import ExecutorService
 from backend.ai_service.agent.guardrails import GuardrailService
@@ -57,17 +57,18 @@ class OrchestratorService:
         *,
         question: str,
         conversation_id: str | None = None,
-        top_k: int = TOP_K,
+        top_k: int | None = None,
         answer_mode: AnswerMode = "fast",
         user_id: str | None = None,
         tenant_id: str | None = None,
     ) -> dict:
         trace = self.trace_service.start_trace()
+        resolved_top_k = resolve_retrieval_top_k(top_k)
         return self.workflow.run_chat(
             trace=trace,
             question=question,
             conversation_id=conversation_id,
-            top_k=top_k,
+            top_k=resolved_top_k,
             answer_mode=answer_mode,
             user_id=user_id,
             tenant_id=tenant_id,
@@ -78,17 +79,18 @@ class OrchestratorService:
         *,
         question: str,
         conversation_id: str | None = None,
-        top_k: int = TOP_K,
+        top_k: int | None = None,
         answer_mode: AnswerMode = "fast",
         user_id: str | None = None,
         tenant_id: str | None = None,
     ) -> AsyncIterator[dict]:
         trace = self.trace_service.start_trace()
+        resolved_top_k = resolve_retrieval_top_k(top_k)
         async for event in self.workflow.stream_chat(
             trace=trace,
             question=question,
             conversation_id=conversation_id,
-            top_k=top_k,
+            top_k=resolved_top_k,
             answer_mode=answer_mode,
             user_id=user_id,
             tenant_id=tenant_id,

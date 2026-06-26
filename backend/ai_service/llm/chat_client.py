@@ -1,7 +1,7 @@
 import json
 from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
 import httpx
 
@@ -23,6 +23,7 @@ class ChatModelResponse:
     content: str
     reasoning_content: str | None
     model: str
+    tool_calls: list[dict[str, Any]] | None = None
 
 
 @dataclass(frozen=True)
@@ -59,9 +60,11 @@ class BailianChatClient:
 
     def complete(
         self,
-        messages: Sequence[dict[str, str]],
+        messages: Sequence[dict[str, Any]],
         mode: AnswerMode,
         temperature: float = 0.2,
+        tools: Sequence[dict[str, Any]] | None = None,
+        tool_choice: str | dict[str, Any] | None = None,
     ) -> ChatModelResponse:
         if not self.enabled:
             raise RuntimeError("DASHSCOPE_API_KEY is not configured")
@@ -74,6 +77,9 @@ class BailianChatClient:
             "stream": False,
             "enable_thinking": mode == "thinking",
         }
+        if tools:
+            payload["tools"] = list(tools)
+            payload["tool_choice"] = tool_choice or "auto"
         if mode == "thinking":
             payload["thinking_budget"] = self.thinking_budget
         headers = {
@@ -93,13 +99,15 @@ class BailianChatClient:
         message = choices[0].get("message") or {}
         content = _normalize_text(message.get("content"))
         reasoning_content = _normalize_text(message.get("reasoning_content"))
-        if not content:
+        tool_calls = message.get("tool_calls") or None
+        if not content and not tool_calls:
             raise RuntimeError("Empty chat response from Bailian")
 
         return ChatModelResponse(
             content=content,
             reasoning_content=reasoning_content or None,
             model=model,
+            tool_calls=tool_calls,
         )
 
     async def stream_complete(

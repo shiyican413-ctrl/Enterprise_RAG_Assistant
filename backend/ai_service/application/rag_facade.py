@@ -1,6 +1,5 @@
 from collections.abc import AsyncIterator
 
-from backend.ai_service.core.config import TOP_K
 from backend.ai_service.llm.chat_client import AnswerMode, BailianChatClient
 from backend.ai_service.storage.history import HistoryService
 from backend.ai_service.application.orchestrator import OrchestratorService
@@ -26,7 +25,7 @@ class RAGService:
         self,
         question: str,
         conversation_id: str | None = None,
-        top_k: int = TOP_K,
+        top_k: int | None = None,
         answer_mode: AnswerMode = "fast",
     ) -> dict:
         return self.orchestrator.handle_chat(
@@ -40,7 +39,7 @@ class RAGService:
         self,
         question: str,
         conversation_id: str | None = None,
-        top_k: int = TOP_K,
+        top_k: int | None = None,
         answer_mode: AnswerMode = "fast",
     ) -> AsyncIterator[dict]:
         async for event in self.orchestrator.stream_chat(

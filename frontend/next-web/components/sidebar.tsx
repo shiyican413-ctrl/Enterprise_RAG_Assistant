@@ -45,9 +45,9 @@ export function Sidebar({ isHealthy }: SidebarProps) {
   // Palette is driven by CSS variables so the same component can sit inside
   // the dark console shell or a workspace shell without duplicating markup.
   return (
-    <aside className="flex h-full w-full flex-col border-r border-[var(--side-border)] bg-[var(--side-bg)]">
+    <aside className="flex h-full w-full flex-col border-r border-[var(--side-border)] bg-[var(--side-bg)] shadow-[8px_0_32px_rgba(16,24,40,0.04)]">
       <div className="flex h-[72px] items-center gap-3 px-6">
-        <div className="relative grid size-11 shrink-0 place-items-center rounded-full bg-[var(--side-active-ring)] text-sm font-bold text-[var(--side-avatar-fg)] shadow-[0_10px_24px_rgba(17,19,23,0.18)]">
+        <div className="relative grid size-11 shrink-0 place-items-center rounded-[14px] bg-[var(--side-active-ring)] text-sm font-bold text-[var(--side-avatar-fg)] shadow-[0_10px_24px_rgba(17,19,23,0.16)]">
           {user?.name?.slice(0, 1).toUpperCase() ?? "R"}
         </div>
         <div className="text-[20px] font-bold leading-none tracking-normal text-[var(--side-fg)]">
@@ -68,8 +68,8 @@ export function Sidebar({ isHealthy }: SidebarProps) {
             const isActive =
               item.href === "/console" ? pathname === "/console" : pathname.startsWith(item.href);
             const className = cn(
-              "flex h-11 items-center gap-3 rounded-[10px] px-4 text-[16px] font-medium text-[var(--side-fg)] transition-colors hover:bg-[var(--side-hover)]",
-              isActive && "bg-[var(--side-active-bg)] font-semibold ring-2 ring-[var(--side-active-ring)]",
+              "flex h-11 items-center gap-3 rounded-[12px] border border-transparent px-4 text-[16px] font-medium text-[var(--side-fg)] transition-colors hover:bg-[var(--side-hover)]",
+              isActive && "border-[var(--side-border)] bg-[var(--side-active-bg)] font-semibold shadow-sm",
               item.disabled && "cursor-not-allowed opacity-60 hover:bg-transparent",
             );
 
@@ -115,7 +115,7 @@ export function Sidebar({ isHealthy }: SidebarProps) {
             <button
               key={item.label}
               type="button"
-              className="flex h-11 w-full items-center gap-3 rounded-[10px] px-4 text-[16px] font-medium text-[var(--side-fg)] transition-colors hover:bg-[var(--side-hover)]"
+              className="flex h-11 w-full items-center gap-3 rounded-[12px] px-4 text-[16px] font-medium text-[var(--side-fg)] transition-colors hover:bg-[var(--side-hover)]"
             >
               <Icon
                 className={cn(

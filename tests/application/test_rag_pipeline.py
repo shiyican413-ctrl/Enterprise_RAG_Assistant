@@ -175,6 +175,73 @@ def test_rag_agent_runs_react_tool_loop() -> None:
     assert any(step["step"] == "memory.append_turn" for step in payload["route"])
 
 
+def test_follow_up_question_includes_loaded_conversation_memory() -> None:
+    class MemoryAwareChatClient:
+        enabled = True
+
+        def __init__(self) -> None:
+            self.agent_calls = 0
+
+        def complete(self, messages, mode, temperature=0.2):
+            if "routing classifier" in messages[0]["content"]:
+                return ChatModelResponse(
+                    content='{"needs_knowledge":false,"reason":"Follow-up can use memory."}',
+                    reasoning_content="",
+                    model="fake-planner",
+                )
+
+            self.agent_calls += 1
+            prompt = messages[-1]["content"]
+            if self.agent_calls == 1:
+                return ChatModelResponse(
+                    content=(
+                        '{"type":"final","thought":"Answer first turn.",'
+                        '"answer":"Alpha answer from the first turn."}'
+                    ),
+                    reasoning_content="",
+                    model="fake-agent",
+                )
+
+            assert "Alpha answer from the first turn." in prompt
+            assert "What was my previous answer?" in prompt
+            return ChatModelResponse(
+                content=(
+                    '{"type":"final","thought":"Used conversation memory.",'
+                    '"answer":"Your previous answer was Alpha answer from the first turn."}'
+                ),
+                reasoning_content="",
+                model="fake-agent",
+            )
+
+    with TemporaryDirectory() as directory:
+        vector_store = LocalVectorStore(
+            index_file=Path(directory) / "chunks.json",
+            embedding_client=BailianEmbeddingClient(api_key=""),
+        )
+        chat_client = MemoryAwareChatClient()
+        orchestrator = OrchestratorService(
+            vector_store=vector_store,
+            history_service=HistoryService(history_file=Path(directory) / "history.json"),
+            chat_client=chat_client,
+        )
+
+        first = orchestrator.handle_chat(
+            question="What was my previous answer?",
+            user_id="user-1",
+            tenant_id="tenant-1",
+        )
+        second = orchestrator.handle_chat(
+            question="Repeat it.",
+            conversation_id=first["conversation_id"],
+            user_id="user-1",
+            tenant_id="tenant-1",
+        )
+
+    assert second["conversation_id"] == first["conversation_id"]
+    assert "Alpha answer" in second["answer"]
+    assert chat_client.agent_calls == 2
+
+
 def test_rag_stream_ask_emits_deltas_and_done() -> None:
     class FakeStreamingChatClient:
         enabled = True

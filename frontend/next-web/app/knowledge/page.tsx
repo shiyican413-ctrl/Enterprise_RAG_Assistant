@@ -14,7 +14,7 @@ import { useAuth } from "@/components/auth/auth-provider";
 export default function KnowledgePage() {
   const knowledge = useKnowledgePage();
   const { user } = useAuth();
-  const canManage = user?.role === "maintainer" || user?.role === "admin";
+  const canManage = user?.role === "admin";
 
   return <RequireAuth>{(
     <div className="workspace-root min-h-screen bg-[var(--workspace-canvas)] text-[var(--work-text)] lg:overflow-hidden">

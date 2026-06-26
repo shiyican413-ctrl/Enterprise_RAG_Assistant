@@ -152,6 +152,7 @@ export async function askQuestion(
   question: string,
   answerMode: AnswerMode,
   conversationId?: string,
+  topK?: number,
 ): Promise<AskResponse> {
   const response = await apiFetch(`/api/chat/ask`, {
     method: "POST",
@@ -161,7 +162,7 @@ export async function askQuestion(
     body: JSON.stringify({
       question,
       conversation_id: conversationId,
-      top_k: 4,
+      top_k: topK,
       answer_mode: answerMode,
     }),
   });
@@ -178,6 +179,7 @@ export async function streamQuestion(
   answerMode: AnswerMode,
   conversationId: string | undefined,
   onEvent: (event: StreamEvent) => void,
+  topK?: number,
 ): Promise<void> {
   const response = await apiFetch(`/api/chat/stream`, {
     method: "POST",
@@ -187,7 +189,7 @@ export async function streamQuestion(
     body: JSON.stringify({
       question,
       conversation_id: conversationId,
-      top_k: 4,
+      top_k: topK,
       answer_mode: answerMode,
     }),
   });

@@ -35,7 +35,9 @@ APP_VERSION = "0.1.0"
 
 CHUNK_SIZE = 700
 CHUNK_OVERLAP = 120
-TOP_K = 4
+RETRIEVAL_DEFAULT_TOP_K = int(os.getenv("RETRIEVAL_DEFAULT_TOP_K", "4"))
+RETRIEVAL_MAX_TOP_K = int(os.getenv("RETRIEVAL_MAX_TOP_K", "10"))
+TOP_K = RETRIEVAL_DEFAULT_TOP_K
 VECTOR_SCORE_THRESHOLD = float(os.getenv("VECTOR_SCORE_THRESHOLD", "0.20"))
 
 DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
@@ -87,3 +89,8 @@ CHAT_TIMEOUT_SECONDS = float(os.getenv("CHAT_TIMEOUT_SECONDS", "60"))
 AGENT_MAX_STEPS = int(os.getenv("AGENT_MAX_STEPS", "4"))
 AGENT_TOTAL_TIMEOUT_SECONDS = float(os.getenv("AGENT_TOTAL_TIMEOUT_SECONDS", "120"))
 AGENT_RETRY_ATTEMPTS = int(os.getenv("AGENT_RETRY_ATTEMPTS", "0"))
+
+
+def resolve_retrieval_top_k(top_k: int | None = None) -> int:
+    requested = top_k if top_k is not None else RETRIEVAL_DEFAULT_TOP_K
+    return max(1, min(requested, RETRIEVAL_MAX_TOP_K))

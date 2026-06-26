@@ -117,6 +117,7 @@ class ExecutorService:
         trace: TraceContext,
         top_k: int,
         tenant_id: str | None = None,
+        memory: list[dict] | None = None,
     ) -> ExecutionResult:
         tool_context = ToolContext(
             trace_id=trace.trace_id, top_k=top_k,
@@ -151,6 +152,7 @@ class ExecutorService:
                 tool_context=tool_context,
                 trace=trace,
                 evidence=evidence,
+                memory=memory,
             )
             break
 
@@ -181,6 +183,7 @@ class ExecutorService:
         trace: TraceContext,
         top_k: int,
         tenant_id: str | None = None,
+        memory: list[dict] | None = None,
     ) -> AsyncIterator[dict]:
         tool_context = ToolContext(
             trace_id=trace.trace_id, top_k=top_k,
@@ -235,6 +238,7 @@ class ExecutorService:
                         answer_mode=plan.answer_mode,
                         tool_context=tool_context,
                         evidence=evidence,
+                        memory=memory,
                     )
                 ):
                     if item.get("type") == "thought":
@@ -327,6 +331,7 @@ class ExecutorService:
         tool_context: ToolContext,
         trace: TraceContext,
         evidence: list[SearchResult] | None = None,
+        memory: list[dict] | None = None,
     ) -> AgentRun:
         rc = self.runtime_config
         agent = ReActAgent(
@@ -343,6 +348,7 @@ class ExecutorService:
                         question=question,
                         answer_mode=answer_mode,
                         evidence=evidence,
+                        memory=memory,
                         deadline=deadline,
                     )
                 except Exception:
@@ -357,6 +363,7 @@ class ExecutorService:
         answer_mode: AnswerMode,
         tool_context: ToolContext,
         evidence: list[SearchResult] | None = None,
+        memory: list[dict] | None = None,
     ):
         rc = self.runtime_config
         agent = ReActAgent(
@@ -369,6 +376,7 @@ class ExecutorService:
             question=question,
             answer_mode=answer_mode,
             evidence=evidence,
+            memory=memory,
             deadline=deadline,
         )
 

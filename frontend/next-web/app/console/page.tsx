@@ -276,7 +276,7 @@ export default function Home() {
         </div>
 
         <main className="flex min-h-0 min-w-0 flex-col">
-          <header className="flex h-14 shrink-0 items-center justify-between border-b border-[var(--work-border)] bg-[var(--work-surface)] px-4 sm:px-7">
+          <header className="flex h-14 shrink-0 items-center justify-between border-b border-[var(--work-border)] bg-white/80 px-4 shadow-sm backdrop-blur-xl sm:px-7">
             <div className="flex items-center gap-3 lg:hidden">
               <span className="grid size-8 place-items-center rounded-full bg-[var(--workspace-brand)] text-sm font-bold text-white">
                 R
@@ -329,7 +329,7 @@ export default function Home() {
           </header>
 
           <div className="min-h-0 flex-1 p-3 sm:p-4">
-            <section className="flex min-h-[calc(100vh-80px)] flex-col overflow-hidden rounded-[12px] border border-[var(--work-border)] bg-[var(--work-surface)] shadow-[0_1px_2px_rgba(15,23,42,0.04),0_18px_42px_rgba(15,23,42,0.06)] sm:min-h-[calc(100vh-88px)] lg:h-full lg:min-h-0">
+            <section className="flex min-h-[calc(100vh-80px)] flex-col overflow-hidden rounded-[20px] border border-[var(--work-border)] bg-[var(--work-surface)] shadow-[0_1px_2px_rgba(16,24,40,0.05),0_28px_70px_rgba(16,24,40,0.09)] sm:min-h-[calc(100vh-88px)] lg:h-full lg:min-h-0">
               <div className="grid min-h-0 flex-1 grid-cols-1 lg:min-h-0 xl:grid-cols-[minmax(0,1fr)_324px]">
                 <ChatPanel
                   messages={messages}

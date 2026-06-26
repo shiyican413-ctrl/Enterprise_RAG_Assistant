@@ -2,11 +2,13 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from backend.ai_service.core.config import RETRIEVAL_MAX_TOP_K
+
 
 class AskRequest(BaseModel):
     question: str = Field(..., min_length=1, examples=["公司报销流程是什么？"])
     conversation_id: str | None = None
-    top_k: int = Field(default=4, ge=1, le=10)
+    top_k: int | None = Field(default=None, ge=1, le=RETRIEVAL_MAX_TOP_K)
     answer_mode: Literal["fast", "thinking"] = "fast"
 
 

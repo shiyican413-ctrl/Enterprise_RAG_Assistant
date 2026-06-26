@@ -59,7 +59,11 @@ class ChatWorkflow:
             )
 
         execution = self.executor.execute(
-            plan=plan, trace=trace, top_k=top_k, tenant_id=tenant_id
+            plan=plan,
+            trace=trace,
+            top_k=top_k,
+            tenant_id=tenant_id,
+            memory=memory_context,
         )
 
         with traced_step(self.trace_service, trace, "memory.append_turn"):
@@ -138,6 +142,7 @@ class ChatWorkflow:
             trace=trace,
             top_k=top_k,
             tenant_id=tenant_id,
+            memory=memory_context,
         ):
             if event.get("type") == "executor_result":
                 execution_result = event

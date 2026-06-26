@@ -2,6 +2,7 @@
 
 import { type FormEvent, useEffect, useMemo, useRef } from "react";
 import {
+  ArrowUp,
   Box,
   Brain,
   CheckCircle2,
@@ -83,11 +84,11 @@ export function ChatPanel({
   }, [messages]);
 
   return (
-    <section className="relative flex min-h-0 flex-col">
+    <section className="chat-canvas relative flex min-h-0 flex-col overflow-hidden">
       <div className="flex h-full min-h-0 flex-col px-4 pb-4 pt-5 sm:px-8 lg:px-10 xl:px-16">
         <div className="mx-auto flex w-full max-w-[1180px] shrink-0 items-center justify-between gap-3">
-          <div className="inline-flex min-w-0 items-center gap-2.5 rounded-[10px] border border-[var(--graphite)] bg-transparent px-2.5 py-1.5 sm:gap-2.5 sm:px-3">
-            <span className="grid size-8 shrink-0 place-items-center rounded-[7px] border border-[var(--graphite)] text-[var(--stellar-white)]">
+          <div className="chat-topbar inline-flex min-w-0 items-center gap-2.5 px-2.5 py-1.5 sm:gap-2.5 sm:px-3">
+            <span className="chat-brand-mark grid size-8 shrink-0 place-items-center rounded-[8px] text-[var(--work-accent-strong)]">
               <Box className="size-4" />
             </span>
             <span className="truncate text-[16px] font-semibold text-[var(--stellar-white)] sm:text-[18px]">
@@ -97,8 +98,8 @@ export function ChatPanel({
             <Info className="hidden size-4 shrink-0 text-[var(--ash)] sm:block" />
             <button
               type="button"
-              className="console-mono inline-flex h-7 min-w-[90px] items-center justify-center gap-1.5 whitespace-nowrap rounded-[6px] border border-[var(--graphite)] bg-transparent px-2 normal-case tracking-normal hover:border-[var(--stellar-white)] sm:min-w-0 sm:gap-2 sm:px-3"
-              style={{ textTransform: "none", letterSpacing: "-0.025em", fontSize: "13px" }}
+              className="mode-toggle console-mono inline-flex h-8 min-w-[90px] items-center justify-center gap-1.5 whitespace-nowrap rounded-[8px] px-2 normal-case tracking-normal sm:min-w-0 sm:gap-2 sm:px-3"
+              style={{ textTransform: "none", letterSpacing: "0", fontSize: "13px" }}
               onClick={() => setAnswerMode(answerMode === "thinking" ? "fast" : "thinking")}
               disabled={isAsking}
               title={`当前模式：${activeMode.model}`}
@@ -113,7 +114,7 @@ export function ChatPanel({
               type="button"
               variant="ghost"
               size="icon-lg"
-              className="rounded-[9px] border border-[var(--graphite)] text-[var(--ash)] hover:border-[var(--stellar-white)] hover:bg-transparent [&_svg]:size-4"
+              className="rounded-[10px] border border-[var(--graphite)] bg-[var(--work-surface)] text-[var(--ash)] shadow-sm transition-all hover:border-[var(--work-accent)] hover:bg-[var(--work-accent-soft)] hover:text-[var(--work-accent-strong)] [&_svg]:size-4"
               aria-label="参数设置"
             >
               <Settings2 className="size-5" />
@@ -159,7 +160,7 @@ export function ChatPanel({
                       <Button
                         type="button"
                         variant="outline"
-                        className="console-pill console-pill--ghost h-10 px-5 text-sm"
+                        className="console-pill console-pill--ghost h-10 px-5 text-sm shadow-sm"
                       >
                         <Square className="size-4" />
                         停止生成
@@ -197,7 +198,7 @@ function MessageBubble({ message, isAsking }: { message: Message; isAsking: bool
 
   if (isUser) {
     return (
-      <article className="ml-auto max-w-[70%] animate-in fade-in slide-in-from-bottom-2 duration-300 rounded-[12px] border border-[var(--work-accent)] bg-[var(--work-accent-soft)] px-5 py-3.5 text-base font-medium leading-7 text-[var(--work-text)]">
+      <article className="user-bubble ml-auto max-w-[76%] animate-in fade-in slide-in-from-bottom-2 duration-300 px-5 py-3.5 text-base font-medium leading-7 text-[var(--work-text)]">
         <p className="whitespace-pre-wrap">{message.content}</p>
       </article>
     );
@@ -215,13 +216,14 @@ function MessageBubble({ message, isAsking }: { message: Message; isAsking: bool
   return (
     <article className="relative flex animate-in fade-in slide-in-from-bottom-2 duration-300 gap-3">
       <div className="pt-3 text-[var(--stellar-white)]">
+        <span className="assistant-avatar grid size-9 place-items-center">
         <Sparkles
           className={cn(
-            "size-5",
+            "size-4",
             (generating || answerRunning) && "animate-pulse",
           )}
-          style={(generating || answerRunning) ? { filter: "drop-shadow(0 0 8px rgba(151,196,255,0.7))" } : undefined}
         />
+        </span>
       </div>
       <div className="min-w-0 flex-1 space-y-3">
         {hasLiveArea ? (
@@ -235,9 +237,9 @@ function MessageBubble({ message, isAsking }: { message: Message; isAsking: bool
         ) : null}
 
         {message.sources?.length ? (
-          <div className="flex items-center justify-between rounded-[12px] border border-[var(--graphite)] bg-transparent px-4 py-3 text-base font-semibold text-[var(--stellar-white)]">
+          <div className="source-card flex items-center justify-between px-4 py-3 text-base font-semibold text-[var(--stellar-white)]">
             <span className="flex min-w-0 items-center gap-2.5">
-              <Globe2 className="size-5 shrink-0 text-[var(--ash)]" />
+              <Globe2 className="size-5 shrink-0 text-[var(--work-accent-strong)]" />
               <span className="truncate">
                 完成知识检索：{message.sources.length} 条企业资料引用
               </span>
@@ -246,7 +248,7 @@ function MessageBubble({ message, isAsking }: { message: Message; isAsking: bool
           </div>
         ) : null}
 
-        <div className="rounded-[12px] border border-[var(--graphite)] bg-transparent px-5 py-4 text-[17px] font-medium leading-8 text-[var(--stellar-white)]">
+        <div className="answer-card px-5 py-4 text-[17px] font-medium leading-8 text-[var(--stellar-white)]">
           <div className="mb-3 flex items-center gap-2.5 text-[16px] font-semibold text-[var(--stellar-white)]">
             {generating || answerRunning ? (
               <Loader2 className="size-5 animate-spin text-[var(--signal-blue)]" />
@@ -265,7 +267,7 @@ function MessageBubble({ message, isAsking }: { message: Message; isAsking: bool
           ) : null}
           {message.model ? (
             <div className="mt-4 flex flex-wrap items-center gap-2 text-sm font-semibold text-[var(--ash)]">
-              <span className="rounded-[6px] border border-[var(--graphite)] px-2.5 py-1">
+              <span className="rounded-[7px] border border-[var(--graphite)] bg-[var(--work-surface-subtle)] px-2.5 py-1">
                 {message.answerMode === "thinking" ? "思考模式" : "快速模式"}
               </span>
               <span className="font-mono text-xs tracking-normal">{message.model}</span>
@@ -279,9 +281,9 @@ function MessageBubble({ message, isAsking }: { message: Message; isAsking: bool
 }
 
 const PIPELINE_LAYERS = [
-  { layer: "planner", name: "规划层", Icon: Route },
-  { layer: "agent", name: "执行层", Icon: Brain },
-  { layer: "answer", name: "命令层", Icon: Sparkles },
+  { layer: "planner", name: "检索计划", Icon: Route },
+  { layer: "agent", name: "知识检索", Icon: Brain },
+  { layer: "answer", name: "回答生成", Icon: Sparkles },
 ] as const;
 
 function VerticalPipeline({
@@ -298,71 +300,87 @@ function VerticalPipeline({
   agentRunning: boolean;
 }) {
   const byLayer = new Map(phases.map((phase) => [phase.layer, phase]));
+  const statusLabel = (status?: PhaseState["status"]) => {
+    if (status === "running") return "进行中";
+    if (status === "done") return "已完成";
+    return "等待中";
+  };
 
   return (
-    <div className="space-y-0 rounded-[12px] border border-[var(--graphite)] bg-transparent px-4 py-3">
+    <div className="pipeline-card px-4 py-3">
       {PIPELINE_LAYERS.map((def, index) => {
         const status = byLayer.get(def.layer)?.status;
         const Icon = def.Icon;
         const isLast = index === PIPELINE_LAYERS.length - 1;
 
         return (
-          <div key={def.layer} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-            {/* Layer row: icon + name + status */}
-            <div className="flex items-center gap-2.5 py-1.5">
-              {/* Connecting line */}
-              {!isLast && (
-                <div className="relative ml-[9px] h-full min-h-[20px] w-px grow bg-[var(--graphite)]" />
-              )}
-              {/* Status icon */}
+          <div
+            key={def.layer}
+            className="relative grid grid-cols-[22px_minmax(0,1fr)] gap-3 pb-4 last:pb-0"
+          >
+            {!isLast ? (
+              <div
+                className="absolute left-[10px] top-[24px] bottom-0 w-px bg-[var(--work-border)]"
+                aria-hidden
+              />
+            ) : null}
+
+            <div className="relative z-10 pt-0.5">
               <div
                 className={cn(
-                  "relative z-10 grid size-[18px] shrink-0 place-items-center rounded-full border-2 transition-all duration-300",
-                  status === "done" && "border-emerald-500 bg-transparent",
-                  status === "running" && "border-[var(--signal-blue)] bg-transparent console-dot-running",
-                  !status && "border-[var(--graphite)] bg-transparent",
+                  "grid size-[21px] shrink-0 place-items-center rounded-full border bg-[var(--work-surface)] transition-colors duration-200",
+                  status === "done" && "border-[var(--work-success)] text-[var(--work-success)]",
+                  status === "running" && "border-[var(--work-accent)] text-[var(--work-accent-strong)]",
+                  !status && "border-[var(--work-border-strong)] text-[var(--work-muted)]",
                 )}
               >
                 {status === "running" ? (
-                  <Loader2 className="size-3 animate-spin text-[var(--signal-blue)]" />
+                  <Loader2 className="size-3 animate-spin" />
                 ) : status === "done" ? (
-                  <CheckCircle2 className="size-3.5 text-emerald-500" />
+                  <CheckCircle2 className="size-3.5" />
                 ) : (
                   <Icon className="size-3.5 text-[var(--ash)]" />
                 )}
               </div>
-              <span
-                className={cn(
-                  "text-[13px] font-semibold tracking-wide transition-colors duration-300",
-                  status === "done" && "text-[var(--stellar-white)]",
-                  status === "running" && "text-[var(--signal-blue)]",
-                  !status && "text-[var(--ash)]",
-                )}
-              >
-                {def.name}
-              </span>
-              {status === "running" ? (
-                <span className="text-[12px] font-medium text-[var(--signal-blue)]">进行中…</span>
-              ) : status === "done" ? (
-                <span className="text-[12px] font-medium text-emerald-500/80">已完成</span>
-              ) : null}
             </div>
 
-            {/* Layer content */}
-            <div className="ml-[25px] min-h-[4px]">
-              {/* 规划层 content: show rationale */}
+            <div className="min-w-0">
+              <div className="flex min-w-0 items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span
+                    className={cn(
+                      "truncate text-[13px] font-semibold transition-colors duration-200",
+                      status === "running" && "text-[var(--work-accent-strong)]",
+                      status !== "running" && "text-[var(--work-text)]",
+                    )}
+                  >
+                    {def.name}
+                  </span>
+                  {status === "running" ? (
+                    <span className="trace-status trace-status--running">
+                      {statusLabel(status)}
+                    </span>
+                  ) : status === "done" ? (
+                    <span className="trace-status trace-status--done">
+                      {statusLabel(status)}
+                    </span>
+                  ) : (
+                    <span className="trace-status">{statusLabel(status)}</span>
+                  )}
+                </div>
+              </div>
+
               {def.layer === "planner" && plan && (
-                <div className="animate-in fade-in duration-300 rounded-[8px] border border-[var(--graphite)] bg-transparent px-3 py-2 mt-1 text-xs leading-5 text-[var(--ash)]">
-                  <span className="console-mono mr-1.5 rounded-[5px] border border-[var(--graphite)] px-1.5 py-0.5 text-[10px]">
+                <div className="mt-1.5 text-xs leading-5 text-[var(--work-text-soft)]">
+                  <span className="trace-chip mr-1.5">
                     {plan.strategy === "llm" ? "AI 决策" : "规则决策"}
                   </span>
                   {plan.rationale ? (
-                    <p className="mt-1.5 text-[var(--ash)]">{plan.rationale}</p>
+                    <p className="mt-1.5">{plan.rationale}</p>
                   ) : null}
                 </div>
               )}
 
-              {/* 执行层 content: show agent thinking steps */}
               {def.layer === "agent" && (
                 <AgentStepsInline steps={agentSteps} running={agentRunning} />
               )}
@@ -376,43 +394,60 @@ function VerticalPipeline({
 
 function AgentStepsInline({ steps, running }: { steps: AgentStep[]; running: boolean }) {
   if (steps.length === 0 && !running) return null;
+  const lastIndex = steps.length - 1;
+  const latestStep = steps[lastIndex];
+
   return (
-    <div className="mt-1 space-y-1.5">
-      {steps.map((step, index) => (
-        <div
-          key={`${step.action ?? "final"}-${index}`}
-          className="animate-in fade-in slide-in-from-bottom-2 duration-300 rounded-[8px] border border-[var(--graphite)] bg-transparent p-2.5 text-xs leading-5 text-[var(--ash)]"
-          style={{ animationDelay: `${index * 60}ms` }}
-        >
-          <div className="mb-1 flex items-center justify-between gap-2">
-            <span className="font-semibold text-[var(--stellar-white)]">
-              第 {index + 1} 轮
+    <div className="mt-1.5">
+      {running && steps.length === 0 ? (
+        <div className="flex items-center gap-2 py-1 text-xs text-[var(--work-muted)]">
+          <Loader2 className="size-3.5 animate-spin text-[var(--work-accent-strong)]" />
+          正在分析需要检索的企业资料
+        </div>
+      ) : null}
+      {latestStep ? (
+        <div className="trace-current">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-medium text-[var(--work-text-soft)]">
+              已记录 {steps.length} 轮执行过程
             </span>
-            {step.action ? (
-              <span className="rounded-[5px] border border-[var(--graphite)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--signal-blue)]">
-                {step.action}
-              </span>
-            ) : (
-              <span className="rounded-[5px] border border-[var(--graphite)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--ash)]">
-                final
-              </span>
-            )}
+            {latestStep.action ? (
+              <span className="trace-chip">{latestStep.action}</span>
+            ) : null}
           </div>
-          {step.thought ? (
-            <p className="whitespace-pre-wrap text-[var(--ash)]">{step.thought}</p>
-          ) : null}
-          {step.observation ? (
-            <p className="mt-1.5 line-clamp-4 rounded-[5px] border border-[var(--graphite)] p-1.5 text-[10px] leading-4 text-[var(--ash)]">
-              {step.observation}
+          {latestStep.thought ? (
+            <p className="mt-1.5 line-clamp-2 text-xs leading-5 text-[var(--work-text-soft)]">
+              {latestStep.thought}
             </p>
           ) : null}
         </div>
-      ))}
-      {running && steps.length === 0 ? (
-        <div className="flex items-center gap-2 px-1 py-1 text-xs text-[var(--ash)]">
-          <Loader2 className="size-3.5 animate-spin text-[var(--signal-blue)]" />
-          智能体正在思考…
-        </div>
+      ) : null}
+      {steps.length ? (
+        <details className="trace-details mt-2">
+          <summary>查看执行明细</summary>
+          <div className="mt-2 space-y-2">
+            {steps.map((step, index) => (
+              <div key={`${step.action ?? "final"}-${index}`} className="trace-step">
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <span className="trace-label">第 {index + 1} 轮</span>
+                  {step.action ? (
+                    <span className="trace-chip">{step.action}</span>
+                  ) : (
+                    <span className="trace-chip trace-chip--muted">完成</span>
+                  )}
+                </div>
+                {step.thought ? (
+                  <p className="whitespace-pre-wrap text-xs leading-5 text-[var(--work-text-soft)]">
+                    {step.thought}
+                  </p>
+                ) : null}
+                {step.observation ? (
+                  <div className="trace-output mt-2 line-clamp-4">{step.observation}</div>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </details>
       ) : null}
     </div>
   );
@@ -471,7 +506,7 @@ function Composer({
 }) {
   return (
     <form
-      className="console-composer mx-auto w-full max-w-[900px] rounded-[24px] border bg-[var(--work-surface)] p-3"
+      className="console-composer mx-auto w-full max-w-[900px] rounded-[22px] border bg-[var(--work-surface)] p-3"
       onSubmit={onAsk}
     >
       <label className="sr-only" htmlFor="question">
@@ -497,7 +532,7 @@ function Composer({
             type="button"
             variant="ghost"
             size="icon-lg"
-            className="rounded-[8px] border border-[var(--graphite)] bg-transparent text-[var(--ash)] hover:border-[var(--stellar-white)] hover:bg-transparent"
+            className="tool-button rounded-[10px] border border-[var(--graphite)] bg-transparent text-[var(--ash)]"
             aria-label="添加附件"
           >
             <Paperclip className="size-5" />
@@ -506,17 +541,17 @@ function Composer({
             type="button"
             variant="ghost"
             size="icon-lg"
-            className="rounded-[8px] border border-[var(--graphite)] bg-transparent text-[var(--ash)] hover:border-[var(--stellar-white)] hover:bg-transparent"
+            className="tool-button rounded-[10px] border border-[var(--graphite)] bg-transparent text-[var(--ash)]"
             aria-label="工具设置"
           >
             <Wrench className="size-5" />
           </Button>
           <button
             type="button"
-            className="inline-flex min-w-0 max-w-[190px] items-center gap-2 rounded-full border border-[var(--graphite)] bg-transparent px-3 py-2 text-sm font-semibold text-[var(--stellar-white)] hover:border-[var(--stellar-white)] sm:max-w-none"
+            className="retrieval-chip inline-flex min-w-0 max-w-[190px] items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold text-[var(--stellar-white)] sm:max-w-none"
             title={`当前回答模式：${activeModeLabel}`}
           >
-            <Globe2 className="size-5 shrink-0 text-[var(--ash)]" />
+            <Globe2 className="size-5 shrink-0 text-[var(--work-accent-strong)]" />
             <span className="truncate">知识库检索</span>
             <X className="size-5 shrink-0 text-[var(--ash)]" />
           </button>
@@ -525,20 +560,12 @@ function Composer({
           type="submit"
           disabled={isAsking || !question.trim()}
           className={cn(
-            "grid size-11 place-items-center rounded-full border border-[var(--graphite)] bg-transparent text-[var(--stellar-white)] transition-colors hover:border-[var(--stellar-white)] disabled:cursor-not-allowed",
+            "send-button grid size-11 place-items-center rounded-full text-[var(--stellar-white)] transition-all disabled:cursor-not-allowed",
             !question.trim() && "opacity-45",
           )}
           aria-label="发送问题"
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
-            <path
-              d="M12 19V5M12 5l-7 7M12 5l7 7"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
+          <ArrowUp className="size-5" />
         </button>
       </div>
     </form>

@@ -64,6 +64,52 @@ def test_auth_me() -> None:
     assert response.json()["role"] == "admin"
 
 
+def test_only_admin_can_mutate_knowledge_base() -> None:
+    admin_headers = auth_headers()
+    suffix = uuid.uuid4().hex[:8]
+    email = f"maintainer-{suffix}@example.com"
+    user_response = client.post(
+        "/api/admin/users",
+        headers=admin_headers,
+        json={
+            "email": email,
+            "name": "知识库维护员",
+            "password": "Maintainer123!",
+            "role": "maintainer",
+        },
+    )
+    assert user_response.status_code == 201
+
+    login_response = client.post(
+        "/api/auth/login", json={"email": email, "password": "Maintainer123!"}
+    )
+    assert login_response.status_code == 200
+    maintainer_headers = {
+        "Authorization": f"Bearer {login_response.json()['access_token']}"
+    }
+
+    assert client.get("/api/documents", headers=maintainer_headers).status_code == 200
+    assert client.get(
+        "/api/documents/missing-document/chunks", headers=maintainer_headers
+    ).status_code == 200
+    assert client.post(
+        "/api/documents/upload",
+        headers=maintainer_headers,
+        files={"file": ("sample.txt", b"hello", "text/plain")},
+    ).status_code == 403
+    assert client.delete(
+        "/api/documents/missing-document", headers=maintainer_headers
+    ).status_code == 403
+    assert client.post(
+        "/api/documents/batch-delete",
+        headers=maintainer_headers,
+        json={"document_ids": ["missing-document"]},
+    ).status_code == 403
+    assert client.post(
+        "/api/knowledge/rebuild", headers=maintainer_headers
+    ).status_code == 403
+
+
 def test_tenant_document_isolation() -> None:
     platform_headers = auth_headers()
     suffix = uuid.uuid4().hex[:8]
