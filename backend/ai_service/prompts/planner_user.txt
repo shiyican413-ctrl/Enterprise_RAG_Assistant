@@ -1,0 +1,9 @@
+# Task Input
+用户问题：
+$question
+
+回答模式：
+$answer_mode
+
+可用会话历史轮数：
+$memory_turns

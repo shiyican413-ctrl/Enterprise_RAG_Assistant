@@ -8,7 +8,7 @@ def test_planner_uses_llm_for_complex_tasks() -> None:
 
         def complete(self, messages, mode, temperature=0.2):
             assert mode == "thinking"
-            assert "routing classifier" in messages[0]["content"]
+            assert "路由分类器" in messages[0]["content"]
             return ChatModelResponse(
                 content=(
                     '{"needs_knowledge":true,'

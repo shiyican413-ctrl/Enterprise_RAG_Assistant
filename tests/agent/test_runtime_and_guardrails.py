@@ -8,7 +8,7 @@ from backend.ai_service.agent import (
     GuardrailService,
     RuntimeConfig,
 )
-from backend.ai_service.agent.react_agent import ReActAgent, _parse_decision
+from backend.ai_service.agent.tool_calling_agent import ToolCallingAgent
 from backend.ai_service.core.config import (
     AGENT_MAX_STEPS,
     AGENT_RETRY_ATTEMPTS,
@@ -34,20 +34,33 @@ class _NoLLMClient:
 
 
 class _LoopingActionClient:
-    """Always requests another tool action — never converges on its own."""
+    """Always requests another native tool call until forced to answer."""
 
     enabled = True
 
     def __init__(self) -> None:
         self.calls = 0
 
-    def complete(self, messages, mode, temperature=0.2):
+    def complete(self, messages, mode, temperature=0.2, tools=None, tool_choice=None):
         self.calls += 1
+        if tools:
+            return ChatModelResponse(
+                content="",
+                reasoning_content="",
+                model="fake-loop",
+                tool_calls=[
+                    {
+                        "id": f"call_{self.calls}",
+                        "type": "function",
+                        "function": {
+                            "name": "a",
+                            "arguments": "{}",
+                        },
+                    }
+                ],
+            )
         return ChatModelResponse(
-            content=(
-                '{"type":"action","thought":"need more evidence",'
-                '"action":"a","action_input":{}}'
-            ),
+            content="forced final",
             reasoning_content="",
             model="fake-loop",
         )
@@ -104,29 +117,7 @@ def test_runtime_max_steps_caps_the_loop():
     assert run.model == "fake-loop"
 
 
-def test_parse_decision_repairs_final_with_action_only():
-    decision = _parse_decision(
-        '{"type":"final","thought":"需要进一步检索。",'
-        '"action":"knowledge_search",'
-        '"action_input":{"query":"系统如何保证回答可追溯"}}'
-    )
-
-    assert decision["type"] == "action"
-    assert decision["action"] == "knowledge_search"
-    assert decision["action_input"] == {"query": "系统如何保证回答可追溯"}
-
-
-def test_parse_decision_rejects_final_with_action_and_answer():
-    decision = _parse_decision(
-        '{"type":"final","thought":"矛盾输出。","answer":"最终回答",'
-        '"action":"knowledge_search","action_input":{"query":"q"}}'
-    )
-
-    assert decision["type"] == "invalid"
-    assert "final" in decision["error"]
-
-
-def test_react_agent_uses_native_tool_calls_when_supported():
+def test_tool_calling_agent_uses_native_tool_calls():
     class NativeToolClient:
         enabled = True
 
@@ -160,7 +151,7 @@ def test_react_agent_uses_native_tool_calls_when_supported():
                 model="native-model",
             )
 
-    agent = ReActAgent(
+    agent = ToolCallingAgent(
         chat_client=NativeToolClient(),
         tools=[
             agent_tool

@@ -15,20 +15,17 @@ def test_rag_answer_mode_uses_selected_chat_model() -> None:
     class FakeChatClient:
         enabled = True
 
-        def complete(self, messages, mode, temperature=0.2):
+        def complete(self, messages, mode, temperature=0.2, tools=None, tool_choice=None):
             assert mode == "thinking"
             assert "When are reimbursements paid?" in messages[-1]["content"]
-            if "routing classifier" in messages[0]["content"]:
+            if "路由分类器" in messages[0]["content"]:
                 return ChatModelResponse(
                     content='{"needs_knowledge":true,"reason":"Policy question."}',
                     reasoning_content="",
                     model="qwen3.5-flash",
                 )
             return ChatModelResponse(
-                content=(
-                    '{"type":"final","thought":"Evidence found.",'
-                    '"answer":"Reimbursements are paid within three business days after approval. [1]"}'
-                ),
+                content="Reimbursements are paid within three business days after approval. [1]",
                 reasoning_content="",
                 model="qwen3.5-flash",
             )
@@ -76,7 +73,7 @@ def test_rag_ignores_dense_results_below_score_threshold() -> None:
 
         enabled = True
 
-        def complete(self, messages, mode, temperature=0.2):
+        def complete(self, messages, mode, temperature=0.2, tools=None, tool_choice=None):
             return ChatModelResponse(
                 content='{"needs_knowledge":true,"reason":"Check KB."}',
                 reasoning_content="",
@@ -86,7 +83,7 @@ def test_rag_ignores_dense_results_below_score_threshold() -> None:
     class UnexpectedChatClient:
         enabled = True
 
-        def complete(self, messages, mode, temperature=0.2):
+        def complete(self, messages, mode, temperature=0.2, tools=None, tool_choice=None):
             raise AssertionError("chat model should not be called for irrelevant retrieval")
 
     with TemporaryDirectory() as directory:
@@ -119,33 +116,46 @@ def test_rag_agent_runs_react_tool_loop() -> None:
 
         def __init__(self) -> None:
             self.calls = 0
+            self.tool_call_requested = False
 
-        def complete(self, messages, mode, temperature=0.2):
+        def complete(self, messages, mode, temperature=0.2, tools=None, tool_choice=None):
             self.calls += 1
-            if self.calls == 1:
+            if "路由分类器" in messages[0]["content"]:
                 return ChatModelResponse(
                     content='{"needs_knowledge":true,"reason":"Enterprise policy question."}',
                     reasoning_content="",
                     model="fake-react-model",
                 )
 
-            if self.calls == 2:
+            if tools and not self.tool_call_requested:
+                assert tools
+                self.tool_call_requested = True
                 return ChatModelResponse(
-                    content=(
-                        '{"type":"action","thought":"Need private policy evidence.",'
-                        '"action":"knowledge_search",'
-                        '"action_input":{"query":"reimbursement approval payment"}}'
-                    ),
+                    content="",
+                    reasoning_content="",
+                    model="fake-react-model",
+                    tool_calls=[
+                        {
+                            "id": "call_1",
+                            "type": "function",
+                            "function": {
+                                "name": "knowledge_search",
+                                "arguments": '{"query":"reimbursement approval payment"}',
+                            },
+                        }
+                    ],
+                )
+
+            if "standalone_query" in messages[-1]["content"]:
+                return ChatModelResponse(
+                    content='{"standalone_query":"When are reimbursements paid?","semantic_queries":["When are reimbursements paid?"]}',
                     reasoning_content="",
                     model="fake-react-model",
                 )
 
             assert "Reimbursement requests are paid" in messages[-1]["content"]
             return ChatModelResponse(
-                content=(
-                    '{"type":"final","thought":"Evidence found.",'
-                    '"answer":"Finance pays reimbursement requests after approval. [1]"}'
-                ),
+                content="Finance pays reimbursement requests after approval. [1]",
                 reasoning_content="",
                 model="fake-react-model",
             )
@@ -168,10 +178,11 @@ def test_rag_agent_runs_react_tool_loop() -> None:
 
         payload = service.ask("When are reimbursements paid?")
 
-    assert chat_client.calls == 3
+    assert chat_client.calls >= 4
+    assert chat_client.tool_call_requested
     assert payload["answer"] == "Finance pays reimbursement requests after approval. [1]"
     assert payload["sources"]
-    assert payload["agent_steps"][0]["action"] == "knowledge_search"
+    assert any(step["action"] == "knowledge_search" for step in payload["agent_steps"])
     assert any(step["step"] == "memory.append_turn" for step in payload["route"])
 
 
@@ -182,8 +193,8 @@ def test_follow_up_question_includes_loaded_conversation_memory() -> None:
         def __init__(self) -> None:
             self.agent_calls = 0
 
-        def complete(self, messages, mode, temperature=0.2):
-            if "routing classifier" in messages[0]["content"]:
+        def complete(self, messages, mode, temperature=0.2, tools=None, tool_choice=None):
+            if "路由分类器" in messages[0]["content"]:
                 return ChatModelResponse(
                     content='{"needs_knowledge":false,"reason":"Follow-up can use memory."}',
                     reasoning_content="",
@@ -194,10 +205,7 @@ def test_follow_up_question_includes_loaded_conversation_memory() -> None:
             prompt = messages[-1]["content"]
             if self.agent_calls == 1:
                 return ChatModelResponse(
-                    content=(
-                        '{"type":"final","thought":"Answer first turn.",'
-                        '"answer":"Alpha answer from the first turn."}'
-                    ),
+                    content="Alpha answer from the first turn.",
                     reasoning_content="",
                     model="fake-agent",
                 )
@@ -205,10 +213,7 @@ def test_follow_up_question_includes_loaded_conversation_memory() -> None:
             assert "Alpha answer from the first turn." in prompt
             assert "What was my previous answer?" in prompt
             return ChatModelResponse(
-                content=(
-                    '{"type":"final","thought":"Used conversation memory.",'
-                    '"answer":"Your previous answer was Alpha answer from the first turn."}'
-                ),
+                content="Your previous answer was Alpha answer from the first turn.",
                 reasoning_content="",
                 model="fake-agent",
             )
@@ -246,19 +251,16 @@ def test_rag_stream_ask_emits_deltas_and_done() -> None:
     class FakeStreamingChatClient:
         enabled = True
 
-        def complete(self, messages, mode, temperature=0.2):
-            if "routing classifier" in messages[0]["content"]:
+        def complete(self, messages, mode, temperature=0.2, tools=None, tool_choice=None):
+            if "路由分类器" in messages[0]["content"]:
                 return ChatModelResponse(
                     content='{"needs_knowledge":true,"reason":"Policy question."}',
                     reasoning_content="",
                     model="qwen3.7-plus",
                 )
-            if "ReAct agent" in messages[0]["content"]:
+            if "企业知识库 RAG 助手" in messages[0]["content"]:
                 return ChatModelResponse(
-                    content=(
-                        '{"type":"final","thought":"Found evidence.",'
-                        '"answer":"Reimbursements are paid within three business days after finance approval. [1]"}'
-                    ),
+                    content="Reimbursements are paid within three business days after finance approval. [1]",
                     reasoning_content="",
                     model="qwen3.7-plus",
                 )

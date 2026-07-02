@@ -1,5 +1,7 @@
 from dataclasses import dataclass, field
 
+from backend.ai_service.agent.query_rewrite_agent import QueryRewriteAgent
+from backend.ai_service.llm.chat_client import BailianChatClient
 from backend.ai_service.retrieval.query_rewriter import QueryRewriteService
 from backend.ai_service.retrieval.vector_store import SearchResult
 from backend.ai_service.tools.base import ToolContext, ToolResult
@@ -23,9 +25,15 @@ class KnowledgeSearchTool:
         '{"query":"用户问题或聚焦后的检索词"}。'
     )
 
-    def __init__(self, vector_store, query_rewriter=None) -> None:
+    def __init__(self, vector_store, query_rewriter=None, chat_client=None) -> None:
         self.vector_store = vector_store
-        self.query_rewriter = query_rewriter or QueryRewriteService()
+        if query_rewriter is not None:
+            self.query_rewriter = query_rewriter
+        else:
+            self.query_rewriter = QueryRewriteAgent(
+                chat_client=chat_client or BailianChatClient(),
+                fallback=QueryRewriteService(),
+            )
 
     def run(self, payload: dict, context: ToolContext) -> ToolResult:
         query = str(payload.get("query") or "").strip()

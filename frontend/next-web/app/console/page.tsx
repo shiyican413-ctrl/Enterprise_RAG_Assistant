@@ -1,8 +1,10 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, Suspense, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   checkHealth,
+  fetchConversation,
   fetchDocuments,
   streamQuestion,
   uploadDocument,
@@ -27,8 +29,17 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { useRouter } from "next/navigation";
 
 export default function Home() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[var(--workspace-canvas)]" />}>
+      <ConsolePageContent />
+    </Suspense>
+  );
+}
+
+function ConsolePageContent() {
   const { user, logout } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [question, setQuestion] = useState("");
   const [conversationId, setConversationId] = useState<string>();
   const [messages, setMessages] = useState<Message[]>([
@@ -48,6 +59,7 @@ export default function Home() {
   const [notice, setNotice] = useState<string>();
   const [selectedFileName, setSelectedFileName] = useState("尚未选择文件");
   const fileRef = useRef<HTMLInputElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -69,6 +81,60 @@ export default function Home() {
     void check();
     return () => { cancelled = true; clearInterval(timer); };
   }, []);
+
+  useEffect(() => {
+    const requestedConversationId = searchParams.get("conversation_id");
+    if (!requestedConversationId || requestedConversationId === conversationId) return;
+    const targetConversationId = requestedConversationId;
+
+    let cancelled = false;
+    async function loadConversation() {
+      setNotice(undefined);
+      try {
+        const payload = await fetchConversation(targetConversationId);
+        if (cancelled) return;
+        const restoredMessages: Message[] = payload.messages.flatMap((turn) => [
+          {
+            id: `${turn.id}-user`,
+            role: "user" as const,
+            content: turn.question,
+          },
+          {
+            id: `${turn.id}-assistant`,
+            role: "assistant" as const,
+            content: turn.answer,
+            sources: turn.sources ?? [],
+            answerMode: turn.answer_mode ?? "fast",
+            model: turn.model,
+            traceId: turn.trace_id,
+            agentSteps: turn.agent_steps ?? [],
+            route: turn.route ?? [],
+          },
+        ]);
+        setConversationId(payload.conversation_id);
+        setMessages(restoredMessages.length ? restoredMessages : [
+          {
+            id: "welcome",
+            role: "assistant",
+            content:
+              "企业知识库已就绪。你可以上传制度、产品手册或常见问题文档，然后向我提问；回答会同时返回引用来源，方便核验依据。",
+          },
+        ]);
+        const lastAssistant = [...restoredMessages]
+          .reverse()
+          .find((message) => message.role === "assistant");
+        setLatestSources(lastAssistant?.sources ?? []);
+      } catch (error) {
+        if (cancelled) return;
+        setNotice(error instanceof Error ? error.message : "会话加载失败。");
+      }
+    }
+
+    void loadConversation();
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams, conversationId]);
 
   async function refreshConsole() {
     const [healthy, documentList] = await Promise.all([
@@ -148,6 +214,8 @@ export default function Home() {
     setQuestion("");
     setIsAsking(true);
     setNotice(undefined);
+    const abortController = new AbortController();
+    abortRef.current = abortController;
 
     try {
       await streamQuestion(trimmed, requestMode, conversationId, (event) => {
@@ -200,6 +268,10 @@ export default function Home() {
 
         if (event.type === "done") {
           setConversationId(event.conversation_id);
+          if (!conversationId) {
+            const nextUrl = `/console?conversation_id=${event.conversation_id}`;
+            window.history.replaceState(null, "", nextUrl);
+          }
           streamModel = event.model ?? null;
           streamTraceId = event.trace_id ?? null;
           streamRoute = event.route ?? streamRoute;
@@ -215,8 +287,15 @@ export default function Home() {
           setNotice(event.message);
           return;
         }
-      });
+      }, undefined, abortController.signal);
     } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        streamContent = hasAssistantMessage
+          ? `${streamContent}\n\n已停止生成。`
+          : "已停止生成。";
+        syncAssistant();
+        return;
+      }
       const errorMessage =
         error instanceof Error
           ? error.message
@@ -228,7 +307,13 @@ export default function Home() {
       setNotice(errorMessage);
     } finally {
       setIsAsking(false);
+      abortRef.current = null;
     }
+  }
+
+  function handleStop() {
+    abortRef.current?.abort();
+    setIsAsking(false);
   }
 
   async function handleUpload() {
@@ -294,6 +379,7 @@ export default function Home() {
                 className="console-pill console-pill--ghost"
                 onClick={() => {
                   setConversationId(undefined);
+                  window.history.replaceState(null, "", "/console");
                   setMessages([
                     {
                       id: "welcome",
@@ -339,8 +425,9 @@ export default function Home() {
                   answerMode={answerMode}
                   setAnswerMode={setAnswerMode}
                   conversationId={conversationId}
-                  onAsk={handleAsk}
-                />
+                onAsk={handleAsk}
+                onStop={handleStop}
+              />
                 <InspectorPanel
                   documents={documents}
                   latestSources={latestSources}

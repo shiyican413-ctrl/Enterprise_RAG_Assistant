@@ -37,6 +37,7 @@ type ChatPanelProps = {
   setAnswerMode: (mode: AnswerMode) => void;
   conversationId?: string;
   onAsk: (e: FormEvent<HTMLFormElement>) => void;
+  onStop?: () => void;
 };
 
 export function ChatPanel({
@@ -48,6 +49,7 @@ export function ChatPanel({
   setAnswerMode,
   conversationId,
   onAsk,
+  onStop,
 }: ChatPanelProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const previousMessageCountRef = useRef(messages.length);
@@ -161,6 +163,7 @@ export function ChatPanel({
                         type="button"
                         variant="outline"
                         className="console-pill console-pill--ghost h-10 px-5 text-sm shadow-sm"
+                        onClick={onStop}
                       >
                         <Square className="size-4" />
                         停止生成
@@ -237,15 +240,36 @@ function MessageBubble({ message, isAsking }: { message: Message; isAsking: bool
         ) : null}
 
         {message.sources?.length ? (
-          <div className="source-card flex items-center justify-between px-4 py-3 text-base font-semibold text-[var(--stellar-white)]">
-            <span className="flex min-w-0 items-center gap-2.5">
-              <Globe2 className="size-5 shrink-0 text-[var(--work-accent-strong)]" />
-              <span className="truncate">
-                完成知识检索：{message.sources.length} 条企业资料引用
+          <details className="source-card px-4 py-3 text-[var(--stellar-white)]">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-base font-semibold">
+              <span className="flex min-w-0 items-center gap-2.5">
+                <Globe2 className="size-5 shrink-0 text-[var(--work-accent-strong)]" />
+                <span className="truncate">
+                  完成知识检索：{message.sources.length} 条企业资料引用
+                </span>
               </span>
-            </span>
-            <span className="text-[var(--ash)]">⌄</span>
-          </div>
+              <span className="text-[var(--ash)]">展开</span>
+            </summary>
+            <div className="mt-3 grid gap-2">
+              {message.sources.map((source, index) => (
+                <div
+                  key={`${source.document_id}-${source.chunk_id}-${index}`}
+                  className="rounded-[8px] border border-[var(--graphite)] px-3 py-2"
+                >
+                  <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-[var(--stellar-white)]">
+                    <Quote className="size-4 text-[var(--signal-blue)]" />
+                    <span>{source.document_name}</span>
+                    <span className="text-xs text-[var(--ash)]">
+                      片段 {source.chunk_index} · {Math.round(source.score * 100)}%
+                    </span>
+                  </div>
+                  <p className="mt-1.5 line-clamp-4 text-sm leading-6 text-[var(--ash)]">
+                    {source.snippet}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </details>
         ) : null}
 
         <div className="answer-card px-5 py-4 text-[17px] font-medium leading-8 text-[var(--stellar-white)]">

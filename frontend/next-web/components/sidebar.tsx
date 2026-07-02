@@ -23,7 +23,7 @@ type SidebarProps = {
 const navItems = [
   { label: "智能问答", href: "/console", icon: FileSearch },
   { label: "知识库", href: "/knowledge", icon: Database },
-  { label: "会话记录", href: "/conversations", icon: FileClock, disabled: true },
+  { label: "会话记录", href: "/conversations", icon: FileClock },
   { label: "权限审计", href: "/audit", icon: ShieldCheck, disabled: true },
 ];
 

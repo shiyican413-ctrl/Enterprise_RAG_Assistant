@@ -148,31 +148,24 @@ MCP 适合做外部工具接入标准。当前项目已有 MCP adapter 预留，
 
 ### 2.4 升级 Agent 执行方式
 
-当前 Agent 是 Prompt-based ReAct：让模型按 JSON 格式输出 action 或 final，再由代码解析。
+当前 Agent 已收敛为原生 tool calling：模型通过 API 的 `tool_calls` 字段请求工具调用，代码负责执行工具、控制步数、记录 trace 和合并结果。
 
 优点：
 
-- 简单
-- 模型无关
-- 当前可运行
+- 工具调用结构更稳定
+- 工具参数来自 API schema，少依赖模型手写 JSON
+- 更适合后续扩展多个企业工具
+- 与主流 OpenAI-compatible / DashScope 工具调用方式更一致
 
-缺点：
+后续重点不是再维护 Prompt-based JSON 协议，而是继续加强工具治理：
 
-- 模型可能不按 JSON 输出
-- 工具参数不够严格
-- 状态恢复能力弱
-- 复杂流程不好维护
-
-后续建议分两步升级：
-
-第一步：保留现有架构，增加结构化输出校验。
-
-- 对 action_input 做 schema 校验
-- JSON 解析失败时自动修复一次
+- 对工具 arguments 做 schema 校验
 - 限制工具白名单
 - 工具异常统一返回可解释 observation
+- 工具调用前做权限校验
+- 工具调用全量写入审计日志
 
-第二步：引入状态图执行。
+下一步可以引入状态图执行。
 
 可以参考 LangGraph 这类状态图思路，把流程显式拆成节点：
 
@@ -311,7 +304,7 @@ guardrails
 - 工具输入输出 schema 化
 - 工具调用权限校验
 - 工具超时和重试
-- JSON 输出修复与校验
+- tool_calls 参数校验
 - Agent 执行失败降级
 - 前端展示工具调用详情
 

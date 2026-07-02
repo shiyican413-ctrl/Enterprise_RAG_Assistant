@@ -53,6 +53,63 @@ def test_upload_and_ask() -> None:
     ]
 
 
+def test_conversation_lifecycle() -> None:
+    headers = auth_headers()
+    question = f"会话生命周期测试 {uuid.uuid4().hex[:8]}"
+    ask_response = client.post(
+        "/api/chat/ask",
+        json={"question": question},
+        headers=headers,
+    )
+    assert ask_response.status_code == 200
+    conversation_id = ask_response.json()["conversation_id"]
+
+    list_response = client.get("/api/chat/conversations", headers=headers)
+    assert list_response.status_code == 200
+    conversations = list_response.json()["conversations"]
+    assert any(item["conversation_id"] == conversation_id for item in conversations)
+
+    search_response = client.get(
+        "/api/chat/conversations/search",
+        params={"q": question[:8]},
+        headers=headers,
+    )
+    assert search_response.status_code == 200
+    assert any(
+        item["conversation_id"] == conversation_id
+        for item in search_response.json()["conversations"]
+    )
+
+    detail_response = client.get(
+        f"/api/chat/conversations/{conversation_id}",
+        headers=headers,
+    )
+    assert detail_response.status_code == 200
+    messages = detail_response.json()["messages"]
+    assert messages[0]["question"] == question
+    assert "sources" in messages[0]
+
+    rename_response = client.patch(
+        f"/api/chat/conversations/{conversation_id}",
+        json={"title": "已重命名会话", "pinned": True},
+        headers=headers,
+    )
+    assert rename_response.status_code == 200
+    assert rename_response.json()["title"] == "已重命名会话"
+    assert rename_response.json()["pinned"] is True
+
+    delete_response = client.delete(
+        f"/api/chat/conversations/{conversation_id}",
+        headers=headers,
+    )
+    assert delete_response.status_code == 200
+    assert delete_response.json()["deleted"] is True
+    assert client.get(
+        f"/api/chat/conversations/{conversation_id}",
+        headers=headers,
+    ).status_code == 404
+
+
 def test_sensitive_api_requires_login() -> None:
     assert client.get("/api/documents").status_code == 401
     assert client.post("/api/chat/ask", json={"question": "hello"}).status_code == 401

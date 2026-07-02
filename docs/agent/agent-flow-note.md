@@ -174,58 +174,56 @@ LLM 返回的 steps 会经过校验：只有 `agent_answer` / `knowledge_search`
 
 **作用**: 按照 Planner 产出的 Plan 逐步执行，包含 ReAct Agent 推理、知识检索、答案生成三个子阶段
 
-#### Step 4.1：ReAct Agent 推理 (`agent_answer`)
+#### Step 4.1：Tool-calling Agent 推理 (`agent_answer`)
 
-**核心类**: `ReActAgent` (`agent_service.py`)
+**核心类**: `ToolCallingAgent` (`tool_calling_agent.py`)
 
-**关键设计**: 采用 **Prompt-based ReAct**（非原生 tool-calling），通过 JSON 格式的 prompt 指导模型做推理，模型无关。
+**关键设计**: 采用 **原生 tool calling**。系统通过 API 的 `tools` schema 把可用工具交给模型，模型通过结构化 `tool_calls` 请求工具调用；代码负责执行工具、记录步骤、控制步数和超时。
 
 **Agent 循环机制** (最多 4 步):
 
 ```
 for _ in range(max_steps=4):
     1. 构建消息 (_build_messages)
-       - System: 角色 + Action/Final JSON 格式 + 可用工具列表
-       - User: 问题 + 回答模式 + 历史步骤 + 指令
+       - System: 角色、目标、流程、证据规则、失败处理
+       - User: 问题、回答要求、会话记忆、已检索证据
 
     2. 调用 LLM (chat_client.complete)
+       - 传入 tools schema
+       - tool_choice="auto"
 
-    3. 解析决策 (_parse_decision)
-       ├─ JSON 解析成功:
-       │   ├─ type == "action" → 执行工具调用
-       │   └─ type == "final"  → 返回最终答案
-       └─ JSON 解析失败 → 视为纯文本最终答案
+    3. 读取模型返回
+       ├─ 有 tool_calls → 执行工具调用
+       └─ 无 tool_calls → 视为最终回答
 
-    4a. 如果是 action:
-        - 查找工具 → tool.run(action_input)
+    4a. 如果有 tool_calls:
+        - 解析 function.name 和 function.arguments
+        - 查找工具 → tool.run(arguments)
         - 生成 AgentStep(thought, action, action_input, observation)
         - yield { type: "thought", step }
+        - 将 tool 结果回传给模型
         - 继续循环
 
-    4b. 如果是 final:
+    4b. 如果无 tool_calls:
         - yield { type: "thought", step }
         - yield { type: "final", run: AgentRun(...) }
         - 结束循环
 
-强制终结: 如果 4 步内未返回 final →
-    发送 force_final=True 的消息，LLM 必须返回最终答案
+强制终结: 如果 4 步内持续请求工具 →
+    追加“不要再调用工具”的用户消息，要求模型基于已有证据返回最终答案
 ```
 
-**System Prompt 全文**:
+**Prompt 与工具 schema**:
 ```
-You are an enterprise RAG ReAct agent. Use tools when the answer
-depends on private knowledge. Do not invent facts outside tool
-observations. Respond with exactly one JSON object and no markdown.
+System prompt:
+- 角色：企业知识库 RAG 助手
+- 目标：准确、可追溯、可核验
+- 流程：需要企业内部依据时通过 tool calling 调用 knowledge_search
+- 失败处理：工具无结果或证据不足时明确说明，不编造
 
-Action JSON shape:
-{"type":"action","thought":"...","action":"tool_name","action_input":{"query":"..."}}
-
-Final JSON shape:
-{"type":"final","thought":"...","answer":"..."}
-
-Available tools:
-- knowledge_search: Search the enterprise knowledge base.
-  Input JSON: {"query":"user question or focused search query"}.
+Tools schema:
+- name: knowledge_search
+- arguments: {"query": "用户问题或聚焦后的检索词"}
 ```
 
 **两种回答模式对 Agent 的影响**:
@@ -483,7 +481,7 @@ OrchestratorService.handle_chat()
       → MemoryService.load_context()
       → PlannerService.create_plan()
       → ExecutorService.execute()
-          → ReActAgent.run() → [tool calls] → AgentRun
+          → ToolCallingAgent.run() → [tool calls] → AgentRun
           → ToolRegistry.run("knowledge_search") [fallback]
           → ExecutorService.build_answer() [fallback]
           → build_template_answer() [fallback]
@@ -502,7 +500,7 @@ OrchestratorService.stream_chat()
       → yield phase/plan events
       → async for event in ExecutorService.stream_execute()
           → yield phase/agent events
-          → for item in ReActAgent.run_stream()
+          → for item in ToolCallingAgent.run_stream()
               → yield agent_step events (每步实时)
           → yield route_step events
           → yield answer_delta events (逐字符/token)
@@ -541,7 +539,7 @@ streamQuestion(request) → fetch("/api/chat/stream") + ReadableStream reader
 
 | 决策 | 方案 | 理由 |
 |------|------|------|
-| Agent 推理方式 | Prompt-based ReAct (JSON in prompt) | 模型无关，不依赖原生 tool-calling API |
+| Agent 推理方式 | 原生 tool calling | 工具调用由 API 结构化返回，减少手写 JSON 协议和格式修复 |
 | 最大推理步数 | 4 步 | 平衡成本与效果，超限强制终结 |
 | 规划策略 | 规则 + LLM 双模式 | 简单问题快速响应，复杂问题动态规划 |
 | 流式粒度 | 48字符/块 (Agent答案) / 单token (LLM生成) | Agent答案是已知文本切块，LLM是原生流 |

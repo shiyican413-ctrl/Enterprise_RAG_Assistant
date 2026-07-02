@@ -65,6 +65,7 @@ class ChatWorkflow:
             tenant_id=tenant_id,
             memory=memory_context,
         )
+        route = self.trace_service.route(trace)
 
         with traced_step(self.trace_service, trace, "memory.append_turn"):
             turn = self.memory.append_turn(
@@ -74,8 +75,14 @@ class ChatWorkflow:
                 conversation_id=conversation_id,
                 user_id=user_id,
                 tenant_id=tenant_id,
+                model=execution.model,
+                answer_mode=answer_mode,
+                trace_id=trace.trace_id,
+                route=route,
+                agent_steps=execution.agent_steps,
             )
 
+        final_route = self.trace_service.route(trace)
         return {
             "conversation_id": turn["conversation_id"],
             "trace_id": trace.trace_id,
@@ -84,7 +91,7 @@ class ChatWorkflow:
             "answer_mode": answer_mode,
             "model": execution.model,
             "agent_steps": execution.agent_steps,
-            "route": self.trace_service.route(trace),
+            "route": final_route,
         }
 
     async def stream_chat(
@@ -154,6 +161,7 @@ class ChatWorkflow:
             "sources": [],
             "model": None,
         }
+        route = self.trace_service.route(trace)
 
         with traced_step(self.trace_service, trace, "memory.append_turn"):
             turn = self.memory.append_turn(
@@ -163,8 +171,14 @@ class ChatWorkflow:
                 conversation_id=conversation_id,
                 user_id=user_id,
                 tenant_id=tenant_id,
+                model=execution_result.get("model"),
+                answer_mode=answer_mode,
+                trace_id=trace.trace_id,
+                route=route,
+                agent_steps=list(execution_result.get("agent_steps") or []),
             )
         yield route_step()
+        final_route = self.trace_service.route(trace)
 
         yield {"type": "sources", "content": execution_result.get("sources") or []}
         yield {
@@ -173,5 +187,5 @@ class ChatWorkflow:
             "trace_id": trace.trace_id,
             "answer_mode": answer_mode,
             "model": execution_result.get("model"),
-            "route": self.trace_service.route(trace),
+            "route": final_route,
         }

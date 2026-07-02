@@ -1,0 +1,15 @@
+# Task Input
+用户问题：
+$question
+
+回答语言要求：
+$language_instruction
+
+回答要求：
+$mode_instruction
+
+# Conversation Memory
+$memory_block
+
+# Knowledge Evidence
+$evidence_block

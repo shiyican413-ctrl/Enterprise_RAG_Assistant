@@ -5,11 +5,11 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import Any
 
-from backend.ai_service.agent.react_agent import (
+from backend.ai_service.agent.tool_calling_agent import (
     AgentRun,
     AgentStep,
     AgentTool,
-    ReActAgent,
+    ToolCallingAgent,
 )
 from backend.ai_service.core.config import (
     AGENT_MAX_STEPS,
@@ -79,7 +79,7 @@ class RuntimeConfig:
     total_timeout_seconds: float = AGENT_TOTAL_TIMEOUT_SECONDS
     retry_attempts: int = AGENT_RETRY_ATTEMPTS
     # None means "all registered tools" (backward compatible). A tuple narrows
-    # what the ReAct agent is allowed to call — the "allowed_tools" control.
+    # what the tool-calling agent is allowed to call — the "allowed_tools" control.
     allowed_tools: tuple[str, ...] | None = None
 
 
@@ -93,7 +93,7 @@ class ExecutorService:
     Despite the legacy name, this is the deterministic execution中枢 described
     in docs/agent改进.md §4: it owns step budget, timeout, allowed tools and
     retries — the things that must stay "稳" and never be delegated to the LLM.
-    The LLM-driven reasoning lives in ``ReActAgent``; this class orchestrates
+    The LLM-driven reasoning lives in ``ToolCallingAgent``; this class orchestrates
     and constrains it.
     """
 
@@ -301,6 +301,7 @@ class ExecutorService:
             "answer": "".join(answer_parts),
             "sources": sources,
             "model": model,
+            "agent_steps": _agent_steps_payload(agent_run),
         }
 
     def _build_agent_tools(self, tool_context: ToolContext) -> list[AgentTool]:
@@ -334,7 +335,7 @@ class ExecutorService:
         memory: list[dict] | None = None,
     ) -> AgentRun:
         rc = self.runtime_config
-        agent = ReActAgent(
+        agent = ToolCallingAgent(
             chat_client=self.chat_client,
             tools=self._build_agent_tools(tool_context),
             max_steps=rc.max_steps,
@@ -366,7 +367,7 @@ class ExecutorService:
         memory: list[dict] | None = None,
     ):
         rc = self.runtime_config
-        agent = ReActAgent(
+        agent = ToolCallingAgent(
             chat_client=self.chat_client,
             tools=self._build_agent_tools(tool_context),
             max_steps=rc.max_steps,
@@ -431,7 +432,7 @@ def chunk_text(text: str, size: int = 48) -> list[str]:
     return [text[index : index + size] for index in range(0, len(text), size)]
 
 
-def build_messages(  # deprecated: answer generation is now unified in the ReAct agent.
+def build_messages(  # deprecated: answer generation is unified in the tool-calling agent.
     question: str,
     results: list[SearchResult],
     answer_mode: AnswerMode,

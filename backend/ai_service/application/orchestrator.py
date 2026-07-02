@@ -36,7 +36,7 @@ class OrchestratorService:
         self.memory = memory or MemoryService(history_service=self.history_service)
         self.planner = planner or PlannerService(chat_client=self.chat_client)
         self.tool_registry = tool_registry or ToolRegistry(
-            [KnowledgeSearchTool(self.vector_store)]
+            [KnowledgeSearchTool(self.vector_store, chat_client=self.chat_client)]
         )
         self.executor = executor or ExecutorService(
             tool_registry=self.tool_registry,

@@ -71,6 +71,38 @@ export type AskResponse = {
 
 export type AnswerMode = "fast" | "thinking";
 
+export type ConversationSummary = {
+  id: string;
+  conversation_id: string;
+  user_id?: string | null;
+  tenant_id?: string | null;
+  title: string;
+  summary: string;
+  pinned: boolean;
+  archived: boolean;
+  message_count: number;
+  created_at: string;
+  updated_at: string;
+  last_message_at?: string | null;
+  last_question: string;
+};
+
+export type ConversationTurn = {
+  id: string;
+  conversation_id: string;
+  user_id?: string | null;
+  tenant_id?: string | null;
+  question: string;
+  answer: string;
+  sources: Source[];
+  created_at: string;
+  model?: string | null;
+  answer_mode?: AnswerMode | null;
+  trace_id?: string | null;
+  route?: RouteStep[];
+  agent_steps?: AgentStep[];
+};
+
 export type KnowledgeDocument = {
   document_id: string;
   document_name: string;
@@ -180,6 +212,7 @@ export async function streamQuestion(
   conversationId: string | undefined,
   onEvent: (event: StreamEvent) => void,
   topK?: number,
+  signal?: AbortSignal,
 ): Promise<void> {
   const response = await apiFetch(`/api/chat/stream`, {
     method: "POST",
@@ -192,6 +225,7 @@ export async function streamQuestion(
       top_k: topK,
       answer_mode: answerMode,
     }),
+    signal,
   });
 
   if (!response.ok) {
@@ -215,6 +249,69 @@ export async function streamQuestion(
 
   buffer += decoder.decode();
   consumeSseBuffer(buffer, onEvent, true);
+}
+
+export async function fetchConversations(
+  query?: string,
+  limit = 50,
+): Promise<ConversationSummary[]> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (query?.trim()) params.set("q", query.trim());
+  const response = await apiFetch(`/api/chat/conversations?${params.toString()}`, {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response));
+  }
+
+  const payload = await response.json();
+  return payload.conversations ?? [];
+}
+
+export async function fetchConversation(
+  conversationId: string,
+): Promise<{ conversation_id: string; messages: ConversationTurn[] }> {
+  const response = await apiFetch(`/api/chat/conversations/${conversationId}`, {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response));
+  }
+
+  return response.json();
+}
+
+export async function updateConversation(
+  conversationId: string,
+  payload: { title?: string; pinned?: boolean },
+): Promise<ConversationSummary> {
+  const response = await apiFetch(`/api/chat/conversations/${conversationId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response));
+  }
+
+  return response.json();
+}
+
+export async function deleteConversation(
+  conversationId: string,
+): Promise<{ conversation_id: string; deleted: boolean }> {
+  const response = await apiFetch(`/api/chat/conversations/${conversationId}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response));
+  }
+
+  return response.json();
 }
 
 function consumeSseBuffer(

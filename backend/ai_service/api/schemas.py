@@ -41,5 +41,35 @@ class AskResponse(BaseModel):
     route: list[dict] = Field(default_factory=list)
 
 
+class ConversationSummary(BaseModel):
+    id: str
+    conversation_id: str
+    user_id: str | None = None
+    tenant_id: str | None = None
+    title: str
+    summary: str = ""
+    pinned: bool = False
+    archived: bool = False
+    message_count: int = 0
+    created_at: str
+    updated_at: str
+    last_message_at: str | None = None
+    last_question: str = ""
+
+
+class ConversationListResponse(BaseModel):
+    conversations: list[ConversationSummary]
+
+
+class UpdateConversationRequest(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=120)
+    pinned: bool | None = None
+
+
+class DeleteConversationResponse(BaseModel):
+    conversation_id: str
+    deleted: bool
+
+
 class ErrorResponse(BaseModel):
     detail: str

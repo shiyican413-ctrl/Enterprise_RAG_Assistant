@@ -1,4 +1,5 @@
 from backend.ai_service.retrieval.vector_store import DocumentChunk, SearchResult
+from backend.ai_service.llm.chat_client import ChatModelResponse
 from backend.ai_service.tools.base import ToolContext
 from backend.ai_service.tools.knowledge_search_tool import KnowledgeSearchTool
 
@@ -28,6 +29,25 @@ class _RecordingVectorStore:
         return [SearchResult(self.shared, 0.8)]
 
 
+class _FakeChatClient:
+    enabled = True
+
+    def complete(self, messages, mode, temperature=0.2, tools=None, tool_choice=None):
+        return ChatModelResponse(
+            content=(
+                '{"standalone_query":"员工费用报销审批通过后多久打款",'
+                '"semantic_queries":["费用报销打款周期","财务审批付款时间"],'
+                '"keyword_queries":["报销 打款"],'
+                '"sub_questions":[],'
+                '"filters":{},'
+                '"must_include_terms":["报销"],'
+                '"rewrite_strategy":"llm_rewrite"}'
+            ),
+            reasoning_content=None,
+            model="fake-model",
+        )
+
+
 def test_searches_multiple_queries_deduplicates_and_returns_trace_metadata():
     store = _RecordingVectorStore()
     result = KnowledgeSearchTool(store).run(
@@ -43,6 +63,19 @@ def test_searches_multiple_queries_deduplicates_and_returns_trace_metadata():
     metadata = result.metadata["query_rewrite"]
     assert metadata["original_query"] == "报销多久到账"
     assert metadata["retrieved_queries"] == len(store.queries)
+
+
+def test_search_tool_uses_llm_query_rewrite_agent_when_chat_client_is_available():
+    store = _RecordingVectorStore()
+    result = KnowledgeSearchTool(store, chat_client=_FakeChatClient()).run(
+        {"query": "报销多久到账"},
+        ToolContext(trace_id="trace-1", top_k=3),
+    )
+
+    searched_queries = [query for query, _ in store.queries]
+    assert "员工费用报销审批通过后多久打款" in searched_queries
+    assert "费用报销打款周期" in searched_queries
+    assert result.metadata["query_rewrite"]["rewrite_strategy"] == "llm_rewrite"
 
 
 def test_empty_query_does_not_call_vector_store():

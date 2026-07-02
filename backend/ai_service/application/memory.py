@@ -24,6 +24,11 @@ class MemoryService:
         conversation_id: str | None,
         user_id: str | None = None,
         tenant_id: str | None = None,
+        model: str | None = None,
+        answer_mode: str | None = None,
+        trace_id: str | None = None,
+        route: list[dict] | None = None,
+        agent_steps: list[dict] | None = None,
     ) -> dict:
         return self.history_service.append_turn(
             question=question,
@@ -32,4 +37,9 @@ class MemoryService:
             conversation_id=conversation_id,
             user_id=user_id,
             tenant_id=tenant_id,
+            model=model,
+            answer_mode=answer_mode,
+            trace_id=trace_id,
+            route=route,
+            agent_steps=agent_steps,
         )

@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from backend.ai_service.llm.chat_client import AnswerMode, BailianChatClient
+from backend.ai_service.prompts import render_prompt
 
 
 PlanStepType = Literal["agent_answer", "knowledge_search", "answer_generation"]
@@ -105,41 +106,15 @@ class PlannerService:
                 messages=[
                     {
                         "role": "system",
-                        "content": (
-                            "You are a routing classifier for an enterprise RAG "
-                            "assistant. Your only job is to decide whether the "
-                            "user's question requires retrieving documents from "
-                            "the private enterprise knowledge base before answering.\n\n"
-                            'Classify "needs_knowledge" = true when ANY of these hold:\n'
-                            "- The question is about enterprise-specific facts: "
-                            "policies, processes, products, regulations, internal "
-                            "terminology, people, or data that would not be in a "
-                            "general-purpose model's training data.\n"
-                            '- The user asks "what is our ...", "how do we ...", '
-                            '"company ...", or names a document/system/department.\n'
-                            "- The answer must cite the knowledge base to be "
-                            "trustworthy.\n\n"
-                            'Classify "needs_knowledge" = false when:\n'
-                            "- The question is general knowledge, math, coding, "
-                            "language, chitchat, definitions of public concepts, "
-                            "or anything answerable without private data.\n"
-                            "- The user is asking for an opinion, creative writing, "
-                            "or generic advice.\n\n"
-                            "Use the same language as the user's question for the "
-                            '"reason" value. If the question contains Chinese, write '
-                            'the "reason" in Simplified Chinese.\n\n'
-                            "Return EXACTLY one JSON object and nothing else "
-                            "(no markdown fences):\n"
-                            '{"needs_knowledge": true|false, '
-                            '"reason": "<one short sentence>"}'
-                        ),
+                        "content": render_prompt("planner_system.txt"),
                     },
                     {
                         "role": "user",
-                        "content": (
-                            f"Question: {question}\n"
-                            f"Answer mode: {answer_mode}\n"
-                            f"Memory turns available: {len(memory)}"
+                        "content": render_prompt(
+                            "planner_user.txt",
+                            question=question,
+                            answer_mode=answer_mode,
+                            memory_turns=len(memory),
                         ),
                     },
                 ],
