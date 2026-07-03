@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/health",
+      "destination": "http://api.120.79.224.215.sslip.io/health"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "http://api.120.79.224.215.sslip.io/api/:path*"
+    }
+  ]
+}
