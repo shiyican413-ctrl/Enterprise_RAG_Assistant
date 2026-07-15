@@ -10,6 +10,9 @@ INDEX_FILE = KNOWLEDGE_DIR / "chunks.json"
 HISTORY_FILE = KNOWLEDGE_DIR / "history.json"
 USERS_FILE = KNOWLEDGE_DIR / "users.json"
 TENANTS_FILE = KNOWLEDGE_DIR / "tenants.json"
+DOCUMENTS_FILE = KNOWLEDGE_DIR / "documents.json"
+CHUNKS_FILE = KNOWLEDGE_DIR / "document_chunks.json"
+INGEST_TASKS_FILE = KNOWLEDGE_DIR / "ingest_tasks.json"
 
 
 def _load_local_env() -> None:
@@ -56,7 +59,7 @@ MILVUS_TOKEN = os.getenv("MILVUS_TOKEN", "").strip()
 MILVUS_DB_NAME = os.getenv("MILVUS_DB_NAME", "").strip()
 MILVUS_COLLECTION = os.getenv("MILVUS_COLLECTION", "enterprise_rag_chunks").strip()
 
-SUPPORTED_EXTENSIONS = {".txt", ".md", ".csv", ".json", ".pdf"}
+SUPPORTED_EXTENSIONS = {".txt", ".md", ".csv", ".json", ".pdf", ".docx", ".xlsx", ".pptx"}
 
 DASHSCOPE_API_KEY = (
     os.getenv("DASHSCOPE_API_KEY")
@@ -81,6 +84,11 @@ BAILIAN_FAST_MODEL = os.getenv("BAILIAN_FAST_MODEL", "qwen3.5-flash")
 BAILIAN_THINKING_MODEL = os.getenv("BAILIAN_THINKING_MODEL", "qwen3.7-plus")
 BAILIAN_THINKING_BUDGET = int(os.getenv("BAILIAN_THINKING_BUDGET", "8192"))
 BAILIAN_RERANK_MODEL = os.getenv("BAILIAN_RERANK_MODEL", "qwen3-rerank")
+BAILIAN_RERANK_URL = os.getenv(
+    "BAILIAN_RERANK_URL",
+    "https://dashscope.aliyuncs.com/compatible-mode/v1/rerank",
+)
+RERANK_ENABLED = os.getenv("RERANK_ENABLED", "true").strip().lower() != "false"
 CHAT_TIMEOUT_SECONDS = float(os.getenv("CHAT_TIMEOUT_SECONDS", "60"))
 
 # --- Agent Runtime controls ---------------------------------------------------

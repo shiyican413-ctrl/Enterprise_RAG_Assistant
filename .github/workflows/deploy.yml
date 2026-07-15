@@ -1,0 +1,98 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Image tag to deploy
+        required: true
+        default: latest
+      environment:
+        description: GitHub environment name
+        required: true
+        default: production
+  workflow_run:
+    workflows:
+      - Publish Images
+    types:
+      - completed
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ inputs.environment || 'production' }}
+  cancel-in-progress: false
+
+env:
+  BACKEND_REPOSITORY: ghcr.io/${{ github.repository_owner }}/enterprise-rag-assistant-backend
+  FRONTEND_REPOSITORY: ghcr.io/${{ github.repository_owner }}/enterprise-rag-assistant-frontend
+
+jobs:
+  deploy:
+    name: Deploy Over SSH
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment || 'production' }}
+    steps:
+      - name: Resolve image tag
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ inputs.image_tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=latest" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Configure SSH key
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "${{ secrets.DEPLOY_SSH_PORT || '22' }}" "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Deploy compose stack
+        env:
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_SSH_PORT || '22' }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          IMAGE_TAG: ${{ steps.vars.outputs.tag }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" << EOF
+          set -euo pipefail
+          cd "$DEPLOY_PATH"
+
+          cat > .deploy-images.env << IMAGES
+          BACKEND_IMAGE=${BACKEND_REPOSITORY}:${IMAGE_TAG}
+          FRONTEND_IMAGE=${FRONTEND_REPOSITORY}:${IMAGE_TAG}
+          IMAGES
+
+          if [ -n "$GHCR_USERNAME" ] && [ -n "$GHCR_TOKEN" ]; then
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
+          fi
+
+          docker compose \
+            --env-file .env.production \
+            --env-file .deploy-images.env \
+            -f docker-compose.prod.yml \
+            pull backend frontend
+
+          docker compose \
+            --env-file .env.production \
+            --env-file .deploy-images.env \
+            -f docker-compose.prod.yml \
+            up -d --remove-orphans
+
+          docker compose \
+            --env-file .env.production \
+            --env-file .deploy-images.env \
+            -f docker-compose.prod.yml \
+            ps
+          EOF
