@@ -198,6 +198,16 @@ cd frontend/next-web
 npm run build
 ```
 
+## CI/CD
+
+仓库已内置 GitHub Actions：
+
+- `CI`：后端测试、前端类型检查、前端构建、Docker 构建冒烟。
+- `Publish Images`：推送后端和前端镜像到 GHCR。
+- `Deploy`：通过 SSH 在服务器上执行 `docker compose` 更新服务。
+
+部署所需的 secrets、镜像 tag 和服务器准备步骤见 [`docs/ops/cicd.md`](docs/ops/cicd.md)。
+
 ## 后续方向
 
 1. 补齐登录、用户角色、文档权限和审计日志。

@@ -1,5 +1,6 @@
 services:
   backend:
+    image: ${BACKEND_IMAGE:-enterprise-rag-backend:latest}
     build:
       context: .
       dockerfile: Dockerfile.backend
@@ -30,6 +31,24 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+
+  frontend:
+    image: ${FRONTEND_IMAGE:-enterprise-rag-frontend:latest}
+    build:
+      context: ./frontend/next-web
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://127.0.0.1:8000}
+    container_name: enterprise-rag-frontend
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://127.0.0.1:8000}
+    ports:
+      - "127.0.0.1:3001:3001"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
 
   postgres:
     image: postgres:16-alpine

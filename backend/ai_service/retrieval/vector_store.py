@@ -20,6 +20,8 @@ from backend.ai_service.core.config import (
     DEFAULT_TENANT_ID,
 )
 from backend.ai_service.retrieval.embeddings import BailianEmbeddingClient
+from backend.ai_service.retrieval.hybrid import BM25Scorer, fuse_results
+from backend.ai_service.retrieval.reranker import HybridReranker
 
 
 TOKEN_PATTERN = re.compile(r"[\w\u4e00-\u9fff]+", re.UNICODE)
@@ -62,6 +64,7 @@ class LocalVectorStore:
     ) -> None:
         self.index_file = index_file
         self.embedding_client = embedding_client or BailianEmbeddingClient()
+        self.reranker = HybridReranker()
         self.score_threshold = score_threshold
         KNOWLEDGE_DIR.mkdir(parents=True, exist_ok=True)
         self._chunks: list[DocumentChunk] = self._load()
@@ -72,12 +75,16 @@ class LocalVectorStore:
         chunks: Iterable[str],
         metadata: dict | None = None,
         tenant_id: str = DEFAULT_TENANT_ID,
+        document_id: str | None = None,
     ) -> tuple[str, int]:
-        document_id = str(uuid.uuid4())
+        document_id = document_id or str(uuid.uuid4())
         now = datetime.now(UTC).isoformat()
         prepared_chunks = _prepare_chunks(chunks, metadata)
-        contents = [chunk.content for chunk in prepared_chunks]
-        embeddings = self._embed_contents(contents)
+        embedding_inputs = [
+            _searchable_text_from_content(chunk.content, chunk.metadata)
+            for chunk in prepared_chunks
+        ]
+        embeddings = self._embed_contents(embedding_inputs)
 
         new_chunks = [
             DocumentChunk(
@@ -151,9 +158,14 @@ class LocalVectorStore:
         self._save()
 
     def search(self, query: str, top_k: int, tenant_id: str = DEFAULT_TENANT_ID) -> list[SearchResult]:
+        candidate_k = max(top_k * 4, top_k)
         if self.embedding_client.enabled and self._has_dense_embeddings():
-            return self._dense_search(query, top_k=top_k, tenant_id=tenant_id)
-        return self._sparse_search(query, top_k=top_k, tenant_id=tenant_id)
+            dense_results = self._dense_search(query, top_k=candidate_k, tenant_id=tenant_id)
+            sparse_results = self._bm25_search(query, top_k=candidate_k, tenant_id=tenant_id)
+            fused = fuse_results(dense_results, sparse_results, top_k=candidate_k)
+            return self.reranker.rerank(query, fused, top_k)
+        sparse_results = self._bm25_search(query, top_k=candidate_k, tenant_id=tenant_id)
+        return self.reranker.rerank(query, sparse_results, top_k)
 
     def _dense_search(self, query: str, top_k: int, tenant_id: str) -> list[SearchResult]:
         query_embedding = self.embedding_client.embed_texts([query])[0]
@@ -182,6 +194,16 @@ class LocalVectorStore:
             if score > 0:
                 results.append(SearchResult(chunk=chunk, score=score))
 
+        return sorted(results, key=lambda result: result.score, reverse=True)[:top_k]
+
+    def _bm25_search(self, query: str, top_k: int, tenant_id: str) -> list[SearchResult]:
+        tenant_chunks = [chunk for chunk in self._chunks if chunk.tenant_id == tenant_id]
+        scorer = BM25Scorer((chunk.id, _searchable_text(chunk)) for chunk in tenant_chunks)
+        results = [
+            SearchResult(chunk=chunk, score=scorer.score(query, chunk.id))
+            for chunk in tenant_chunks
+        ]
+        results = [result for result in results if result.score > 0]
         return sorted(results, key=lambda result: result.score, reverse=True)[:top_k]
 
     def _embed_contents(self, contents: list[str]) -> list[list[float]]:
@@ -248,6 +270,21 @@ def _dense_cosine_similarity(left: list[float], right: list[float]) -> float:
     return numerator / (left_norm * right_norm)
 
 
+def _searchable_text(chunk: DocumentChunk) -> str:
+    return _searchable_text_from_content(chunk.content, chunk.metadata)
+
+
+def _searchable_text_from_content(content: str, metadata: dict) -> str:
+    title_path = metadata.get("title_path") or metadata.get("section_path") or []
+    block_type = metadata.get("block_type") or metadata.get("chunk_type") or ""
+    prefix = []
+    if title_path:
+        prefix.append("标题路径：" + " > ".join(str(item) for item in title_path))
+    if block_type:
+        prefix.append(f"内容类型：{block_type}")
+    return "\n".join([*prefix, content]).strip()
+
+
 class MilvusVectorStore:
     """Milvus backed vector store for document chunks and dense retrieval."""
 
@@ -280,8 +317,10 @@ class MilvusVectorStore:
         self.db_name = db_name
         self.collection_name = collection_name
         self.embedding_client = embedding_client or BailianEmbeddingClient()
+        self.reranker = HybridReranker()
         self.score_threshold = score_threshold
         self.dimensions = dimensions
+        self.hybrid_enabled = False
         self.alias = f"enterprise_rag_{uuid.uuid4().hex}"
         self.collection = self._ensure_collection()
 
@@ -291,14 +330,18 @@ class MilvusVectorStore:
         chunks: Iterable[str],
         metadata: dict | None = None,
         tenant_id: str = DEFAULT_TENANT_ID,
+        document_id: str | None = None,
     ) -> tuple[str, int]:
         prepared_chunks = _prepare_chunks(chunks, metadata)
-        contents = [chunk.content for chunk in prepared_chunks]
+        embedding_inputs = [
+            _searchable_text_from_content(chunk.content, chunk.metadata)
+            for chunk in prepared_chunks
+        ]
         if not prepared_chunks:
-            return str(uuid.uuid4()), 0
+            return document_id or str(uuid.uuid4()), 0
 
-        embeddings = self._embed_contents(contents)
-        document_id = str(uuid.uuid4())
+        embeddings = self._embed_contents(embedding_inputs)
+        document_id = document_id or str(uuid.uuid4())
         now = datetime.now(UTC).isoformat()
         rows = [
             {
@@ -308,6 +351,7 @@ class MilvusVectorStore:
                 "tenant_id": tenant_id,
                 "chunk_index": index,
                 "content": chunk.content,
+                "sparse_text": _searchable_text_from_content(chunk.content, chunk.metadata),
                 "metadata_json": _json(chunk.metadata),
                 "created_at": now,
                 "embedding": embeddings[index],
@@ -372,6 +416,14 @@ class MilvusVectorStore:
         self.collection.flush()
 
     def search(self, query: str, top_k: int, tenant_id: str = DEFAULT_TENANT_ID) -> list[SearchResult]:
+        if self.hybrid_enabled:
+            try:
+                results = self._hybrid_search(query, top_k=top_k, tenant_id=tenant_id)
+                if results:
+                    return self.reranker.rerank(query, results, top_k)
+            except Exception:
+                pass
+
         query_embedding = self.embedding_client.embed_texts([query])[0]
         hits = self.collection.search(
             data=[query_embedding],
@@ -383,6 +435,57 @@ class MilvusVectorStore:
         )
         results: list[SearchResult] = []
         for hit in hits[0]:
+            score = float(hit.score or 0)
+            if score < self.score_threshold:
+                continue
+            entity = hit.entity
+            chunk = DocumentChunk(
+                id=str(entity.get("id")),
+                document_id=str(entity.get("document_id")),
+                document_name=str(entity.get("document_name")),
+                tenant_id=str(entity.get("tenant_id")),
+                chunk_index=int(entity.get("chunk_index")),
+                content=str(entity.get("content")),
+                metadata=_loads_metadata(entity.get("metadata_json")),
+                created_at=str(entity.get("created_at")),
+                embedding=None,
+                embedding_model=entity.get("embedding_model"),
+            )
+            results.append(SearchResult(chunk=chunk, score=score))
+        return results
+
+    def _hybrid_search(self, query: str, top_k: int, tenant_id: str) -> list[SearchResult]:
+        from pymilvus import AnnSearchRequest, WeightedRanker
+
+        query_embedding = self.embedding_client.embed_texts([query])[0]
+        candidate_k = max(top_k * 4, top_k)
+        requests = [
+            AnnSearchRequest(
+                data=[query_embedding],
+                anns_field="embedding",
+                param={"metric_type": "COSINE", "params": {"nprobe": 10}},
+                limit=candidate_k,
+                expr=self._tenant_expr(tenant_id),
+            ),
+            AnnSearchRequest(
+                data=[query],
+                anns_field="sparse_embedding",
+                param={"metric_type": "BM25", "params": {}},
+                limit=candidate_k,
+                expr=self._tenant_expr(tenant_id),
+            ),
+        ]
+        hits = self.collection.hybrid_search(
+            reqs=requests,
+            rerank=WeightedRanker(0.62, 0.38),
+            limit=candidate_k,
+            output_fields=self._OUTPUT_FIELDS,
+        )
+        return self._hits_to_results(hits[0])
+
+    def _hits_to_results(self, hits) -> list[SearchResult]:
+        results: list[SearchResult] = []
+        for hit in hits:
             score = float(hit.score or 0)
             if score < self.score_threshold:
                 continue
@@ -434,6 +537,8 @@ class MilvusVectorStore:
                 CollectionSchema,
                 DataType,
                 FieldSchema,
+                Function,
+                FunctionType,
                 connections,
                 utility,
             )
@@ -449,10 +554,19 @@ class MilvusVectorStore:
 
         if utility.has_collection(self.collection_name, using=self.alias):
             existing = Collection(name=self.collection_name, using=self.alias)
-            if "tenant_id" not in {field.name for field in existing.schema.fields}:
+            field_names = {field.name for field in existing.schema.fields}
+            if "tenant_id" not in field_names:
                 self.collection_name = f"{self.collection_name}_tenant_v1"
+            elif "sparse_embedding" not in field_names:
+                self.collection_name = f"{self.collection_name}_hybrid_v1"
 
         if not utility.has_collection(self.collection_name, using=self.alias):
+            bm25_function = Function(
+                name="bm25_sparse_embedding",
+                function_type=FunctionType.BM25,
+                input_field_names=["sparse_text"],
+                output_field_names=["sparse_embedding"],
+            )
             fields = [
                 FieldSchema("id", DataType.VARCHAR, is_primary=True, max_length=64),
                 FieldSchema("document_id", DataType.VARCHAR, max_length=64),
@@ -460,6 +574,13 @@ class MilvusVectorStore:
                 FieldSchema("tenant_id", DataType.VARCHAR, max_length=64),
                 FieldSchema("chunk_index", DataType.INT64),
                 FieldSchema("content", DataType.VARCHAR, max_length=65535),
+                FieldSchema(
+                    "sparse_text",
+                    DataType.VARCHAR,
+                    max_length=65535,
+                    enable_analyzer=True,
+                ),
+                FieldSchema("sparse_embedding", DataType.SPARSE_FLOAT_VECTOR),
                 FieldSchema("metadata_json", DataType.VARCHAR, max_length=8192),
                 FieldSchema("created_at", DataType.VARCHAR, max_length=64),
                 FieldSchema("embedding", DataType.FLOAT_VECTOR, dim=self.dimensions),
@@ -468,6 +589,7 @@ class MilvusVectorStore:
             schema = CollectionSchema(
                 fields=fields,
                 description="Enterprise RAG document chunks",
+                functions=[bm25_function],
             )
             collection = Collection(
                 name=self.collection_name,
@@ -483,6 +605,14 @@ class MilvusVectorStore:
                     "params": {"nlist": 128},
                 },
             )
+            collection.create_index(
+                field_name="sparse_embedding",
+                index_params={
+                    "index_type": "SPARSE_INVERTED_INDEX",
+                    "metric_type": "BM25",
+                    "params": {},
+                },
+            )
         else:
             collection = Collection(
                 name=self.collection_name,
@@ -490,6 +620,7 @@ class MilvusVectorStore:
                 consistency_level="Strong",
             )
 
+        self.hybrid_enabled = "sparse_embedding" in {field.name for field in collection.schema.fields}
         collection.load()
         return collection
 

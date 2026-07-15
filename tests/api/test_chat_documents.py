@@ -32,9 +32,18 @@ def test_upload_and_ask() -> None:
             "/api/documents/upload",
             files={"file": ("sample_policy.txt", file, "text/plain")},
             headers=headers,
-        )
+    )
     assert upload_response.status_code == 200
-    assert upload_response.json()["chunk_count"] > 0
+    upload_payload = upload_response.json()
+    assert upload_payload["task_id"]
+    assert upload_payload["status"] in {"pending", "succeeded"}
+    assert upload_payload["version"] >= 1
+    document_id = upload_payload["document_id"]
+
+    documents = client.get("/api/documents", headers=headers).json()["documents"]
+    indexed = next(item for item in documents if item["document_id"] == document_id)
+    assert indexed["status"] == "succeeded"
+    assert indexed["chunk_count"] > 0
 
     ask_response = client.post(
         "/api/chat/ask",
@@ -51,6 +60,41 @@ def test_upload_and_ask() -> None:
         "memory.load",
         "planner.create_plan",
     ]
+
+
+def test_upload_deduplicates_by_file_hash_and_exposes_chunk_metadata() -> None:
+    headers = auth_headers()
+    name = f"duplicate-{uuid.uuid4().hex[:8]}.txt"
+    content = b"# Hash Policy\n\nThe same file should not be indexed twice."
+    first = client.post(
+        "/api/documents/upload",
+        files={"file": (name, content, "text/plain")},
+        headers=headers,
+    )
+    assert first.status_code == 200
+    first_payload = first.json()
+
+    second = client.post(
+        "/api/documents/upload",
+        files={"file": (name, content, "text/plain")},
+        headers=headers,
+    )
+    assert second.status_code == 200
+    second_payload = second.json()
+    assert second_payload["duplicate"] is True
+    assert second_payload["document_id"] == first_payload["document_id"]
+
+    chunks = client.get(
+        f"/api/documents/{first_payload['document_id']}/chunks",
+        headers=headers,
+    ).json()["chunks"]
+    assert chunks
+    metadata = chunks[0]["metadata"]
+    assert chunks[0]["hash"]
+    assert "title_path" in chunks[0]
+    assert "block_type" in chunks[0]
+    assert metadata["hash"] == chunks[0]["hash"]
+    assert "source_page" in metadata
 
 
 def test_conversation_lifecycle() -> None:

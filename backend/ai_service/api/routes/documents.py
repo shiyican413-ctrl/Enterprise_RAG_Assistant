@@ -1,9 +1,9 @@
 import logging
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
 
-from backend.ai_service.api.dependencies import knowledge_service, vector_store
+from backend.ai_service.api.dependencies import knowledge_service
 from backend.ai_service.core.config import DATA_DIR
 from backend.ai_service.security.dependencies import require_permission
 from backend.ai_service.security.models import User
@@ -15,11 +15,17 @@ logger = logging.getLogger(__name__)
 
 @router.post("/api/documents/upload")
 async def upload_document(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     user: User = Depends(require_permission("document:upload")),
 ) -> dict:
     try:
-        result = await knowledge_service.ingest_upload(file, tenant_id=user.tenant_id)
+        result = await knowledge_service.ingest_upload(
+            file,
+            tenant_id=user.tenant_id,
+            user_id=user.id,
+            background_tasks=background_tasks,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
@@ -33,12 +39,12 @@ async def upload_document(
 
 @router.get("/api/documents")
 def list_documents(user: User = Depends(require_permission("document:list"))) -> dict:
-    return {"documents": vector_store.list_documents(tenant_id=user.tenant_id)}
+    return {"documents": knowledge_service.list_documents(tenant_id=user.tenant_id)}
 
 
 @router.delete("/api/documents/{document_id}")
 def delete_document(document_id: str, user: User = Depends(require_permission("document:delete"))) -> dict:
-    deleted_chunks = vector_store.delete_document(document_id, tenant_id=user.tenant_id)
+    deleted_chunks = knowledge_service.delete_document(document_id, tenant_id=user.tenant_id)
     if deleted_chunks == 0:
         raise HTTPException(status_code=404, detail="document not found")
     return {"document_id": document_id, "deleted_chunks": deleted_chunks}
@@ -52,7 +58,7 @@ def batch_delete_documents(body: dict, user: User = Depends(require_permission("
             status_code=400,
             detail="document_ids must be a non-empty list",
         )
-    deleted_chunks = vector_store.delete_documents(document_ids, tenant_id=user.tenant_id)
+    deleted_chunks = knowledge_service.delete_documents(document_ids, tenant_id=user.tenant_id)
     if deleted_chunks == 0:
         raise HTTPException(status_code=404, detail="no documents found")
     return {"document_ids": document_ids, "deleted_chunks": deleted_chunks}
@@ -62,13 +68,21 @@ def batch_delete_documents(body: dict, user: User = Depends(require_permission("
 def list_document_chunks(document_id: str, user: User = Depends(require_permission("document:read"))) -> dict:
     return {
         "document_id": document_id,
-        "chunks": vector_store.list_document_chunks(document_id, tenant_id=user.tenant_id),
+        "chunks": knowledge_service.list_document_chunks(document_id, tenant_id=user.tenant_id),
     }
+
+
+@router.get("/api/documents/tasks/{task_id}")
+def get_ingest_task(task_id: str, user: User = Depends(require_permission("document:read"))) -> dict:
+    task = knowledge_service.get_task(task_id, tenant_id=user.tenant_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="ingest task not found")
+    return {"task": task}
 
 
 @router.post("/api/knowledge/rebuild")
 def rebuild_from_uploads(user: User = Depends(require_permission("knowledge:rebuild"))) -> dict:
-    vector_store.clear(tenant_id=user.tenant_id)
+    knowledge_service.clear(tenant_id=user.tenant_id)
     directory = Path(DATA_DIR) / "uploads" / user.tenant_id
     results = knowledge_service.ingest_directory(directory, tenant_id=user.tenant_id)
     return {"message": "knowledge base rebuilt", "documents": results}
